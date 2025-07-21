@@ -1,28 +1,22 @@
 import pandas as pd
-import numpy as np
-import streamlit as st
-import matplotlib.pyplot as plt
 from arch import arch_model
 
 def run_garch_forecast(df, forecast_days, currency):
-    df = df.copy()
-    df = df.sort_values("Date")
+    df = df[['Date', 'Close']].copy()
+    df.set_index('Date', inplace=True)
+    returns = 100 * df['Close'].pct_change().dropna()
 
-    returns = 100 * df["Close"].pct_change().dropna()
-    am = arch_model(returns, vol='GARCH', p=1, q=1)
-    
-    try:
-        res = am.fit(disp='off')
-        forecast = res.forecast(horizon=forecast_days)
-        vol_forecast = np.sqrt(forecast.variance.values[-1, :])
-        dates = pd.date_range(start=df["Date"].iloc[-1] + pd.Timedelta(days=1), periods=forecast_days)
+    model = arch_model(returns, vol='Garch', p=1, q=1)
+    res = model.fit(disp="off")
+    forecast = res.forecast(horizon=forecast_days)
 
-        st.subheader("📉 GARCH Volatility Forecast")
-        st.line_chart(pd.Series(vol_forecast, index=dates, name="Volatility"))
+    volatility = forecast.variance.values[-1, :] ** 0.5
+    last_price = df['Close'].iloc[-1]
+    forecast_prices = [last_price * (1 + 0.01 * vol) for vol in volatility]
 
-        VaR_95 = -1.65 * vol_forecast
-        st.subheader("📊 Value at Risk (95%)")
-        st.line_chart(pd.Series(VaR_95, index=dates, name="VaR 95%"))
+    forecast_dates = pd.date_range(df.index[-1], periods=forecast_days + 1, freq='D')[1:]
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Predicted_Price': forecast_prices})
+    forecast_df['Price'] = forecast_df['Predicted_Price']
+    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
 
-    except Exception as e:
-        st.error(f"GARCH Error: {e}")
+    return forecast_df, volatility
