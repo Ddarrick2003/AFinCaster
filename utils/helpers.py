@@ -1,9 +1,11 @@
-import streamlit as st
-import matplotlib.pyplot as plt
+# 📁 utils/helpers.py
 
-def convert_currency(value, currency):
-    return value * 144 if currency == "KSh" else value
+import streamlit as st
+import plotly.graph_objects as go
+
+def convert_currency(value, currency="KSh"):
+    return value * 157 if currency == "KSh" else value
 
 def display_mae_chart(mae):
-    st.markdown("#### 📉 Mean Absolute Error (MAE)")
+    st.markdown("**Mean Absolute Error (MAE)**")
     st.metric("MAE", f"{mae:.2f}")
