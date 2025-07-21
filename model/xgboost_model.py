@@ -1,11 +1,13 @@
+# 📁 model/xgboost_model.py
+
 import pandas as pd
 import xgboost as xgb
-from sklearn.metrics import mean_absolute_error
 import shap
+from sklearn.metrics import mean_absolute_error
 import matplotlib.pyplot as plt
 
-def run_xgboost_with_shap(df, forecast_days, currency):
-    df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].copy()
+def run_xgboost_with_shap(df, forecast_days, currency="KSh"):
+    df = df.copy()
     df['Target'] = df['Close'].shift(-forecast_days)
     df.dropna(inplace=True)
 
@@ -16,20 +18,19 @@ def run_xgboost_with_shap(df, forecast_days, currency):
     model = xgb.XGBRegressor()
     model.fit(X, y)
 
-    prediction = model.predict(X.tail(1).values.reshape(1, -1))[0]
-    forecast_df = pd.DataFrame({
-        'Date': [df['Date'].iloc[-1] + pd.Timedelta(days=forecast_days)],
-        'Predicted_Price': [prediction]
-    })
-    forecast_df['Price'] = forecast_df['Predicted_Price']
-    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
+    future_X = df[features].iloc[-forecast_days:]
+    predictions = model.predict(future_X)
 
-    mae = mean_absolute_error(y, model.predict(X))
+    forecast_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast': predictions})
 
-    # SHAP plotting
+    if currency == "KSh":
+        forecast_df['Forecast'] *= 157
+
+    mae = mean_absolute_error(df['Close'].iloc[-forecast_days:], predictions[:len(df['Close'].iloc[-forecast_days:])])
+
     explainer = shap.Explainer(model)
     shap_values = explainer(X)
-    shap_plot = shap.plots.bar(shap_values, show=False)
-    fig = plt.gcf()
-
+    fig, ax = plt.subplots()
+    shap.summary_plot(shap_values, X, plot_type="bar", show=False)
     return forecast_df, mae, fig
