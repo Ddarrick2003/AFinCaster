@@ -1,19 +1,27 @@
 import pandas as pd
 import numpy as np
-from datetime import timedelta
 
-def run_transformer_model(df, model_type="informer", forecast_horizon=10):
-    # Placeholder logic for demo — replace with real Transformer model inference
-    df = df.copy()
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
-    df = df[['Close']].dropna()
+def run_informer(df, forecast_days, currency):
+    # Placeholder for Informer logic
+    last_price = df['Close'].iloc[-1]
+    forecast_prices = np.linspace(last_price, last_price * 1.02, forecast_days)
 
-    actual = df['Close']
-    last_value = actual.iloc[-1]
+    forecast_dates = pd.date_range(df['Date'].iloc[-1], periods=forecast_days + 1, freq='D')[1:]
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Predicted_Price': forecast_prices})
+    forecast_df['Price'] = forecast_df['Predicted_Price']
+    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
 
-    # Fake prediction: linear increase
-    predicted = [last_value * (1 + 0.01 * i) for i in range(1, forecast_horizon + 1)]
-    forecast_dates = pd.date_range(start=df.index[-1] + timedelta(days=1), periods=forecast_horizon)
+    return forecast_df
 
-    return actual, predicted, forecast_dates
+
+def run_autoformer(df, forecast_days, currency):
+    # Placeholder for Autoformer logic
+    last_price = df['Close'].iloc[-1]
+    forecast_prices = np.linspace(last_price, last_price * 1.03, forecast_days)
+
+    forecast_dates = pd.date_range(df['Date'].iloc[-1], periods=forecast_days + 1, freq='D')[1:]
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Predicted_Price': forecast_prices})
+    forecast_df['Price'] = forecast_df['Predicted_Price']
+    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
+
+    return forecast_df
