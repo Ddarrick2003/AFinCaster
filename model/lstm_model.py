@@ -1,43 +1,49 @@
-import numpy as np
+# 📁 model/lstm_model.py
+
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
 from keras.layers import LSTM, Dense
+from sklearn.metrics import mean_absolute_error
 
-def run_lstm_forecast(df, forecast_days, currency):
-    df = df[['Date', 'Close']].copy()
-    df.set_index('Date', inplace=True)
-    data = df.values
+def run_lstm_forecast(df, forecast_days, currency="KSh"):
+    df = df.copy()
+    data = df[['Close']].values
 
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(data)
 
-    look_back = 30
-    X, y = [], []
-    for i in range(look_back, len(scaled_data) - forecast_days):
-        X.append(scaled_data[i - look_back:i])
-        y.append(scaled_data[i:i + forecast_days])
+    sequence_length = 60
+    x, y = [], []
+    for i in range(sequence_length, len(scaled_data)):
+        x.append(scaled_data[i - sequence_length:i, 0])
+        y.append(scaled_data[i, 0])
 
-    X, y = np.array(X), np.array(y)
+    x, y = np.array(x), np.array(y)
+    x = np.reshape(x, (x.shape[0], x.shape[1], 1))
 
     model = Sequential()
-    model.add(LSTM(50, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
+    model.add(LSTM(50, return_sequences=True, input_shape=(x.shape[1], 1)))
     model.add(LSTM(50))
-    model.add(Dense(forecast_days))
+    model.add(Dense(1))
     model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X, y[:, :, 0], epochs=10, batch_size=16, verbose=0)
+    model.fit(x, y, epochs=5, batch_size=32, verbose=0)
 
-    recent_data = scaled_data[-look_back:]
-    recent_data = np.expand_dims(recent_data, axis=0)
-    prediction_scaled = model.predict(recent_data)[0]
-    prediction = scaler.inverse_transform(prediction_scaled.reshape(-1, 1)).flatten()
+    last_60_days = scaled_data[-60:]
+    forecast = []
+    for _ in range(forecast_days):
+        input_data = last_60_days[-60:].reshape(1, 60, 1)
+        predicted = model.predict(input_data, verbose=0)
+        forecast.append(predicted[0][0])
+        last_60_days = np.append(last_60_days, predicted)[-60:]
 
-    forecast_dates = pd.date_range(df.index[-1], periods=forecast_days + 1, freq='D')[1:]
-    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Predicted_Price': prediction})
-    forecast_df['Price'] = forecast_df['Predicted_Price']
-    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
+    forecast = scaler.inverse_transform(np.array(forecast).reshape(-1, 1)).flatten()
+    forecast_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
 
-    actual = df['Close'].values[-forecast_days:]
-    mae = np.mean(np.abs(prediction[:len(actual)] - actual))
+    results = pd.DataFrame({'Date': forecast_dates, 'Forecast': forecast})
+    if currency == "KSh":
+        results['Forecast'] *= 157
 
-    return forecast_df, mae
+    mae = mean_absolute_error(df['Close'][-forecast_days:], forecast[:len(df['Close'][-forecast_days:])])
+    return results, mae
