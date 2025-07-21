@@ -52,9 +52,14 @@ uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
-        df['Date'] = pd.to_datetime(df['Date'])
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df = df.sort_values(by='Date')
 
+        # 🛠 Fix non-numeric Volume column if needed
+        if 'Volume' in df.columns and df['Volume'].dtype == 'object':
+            df['Volume'] = pd.to_numeric(df['Volume'].astype(str).str.replace(',', ''), errors='coerce')
+
+        # Drop NaNs only if auto_clean is selected
         if auto_clean:
             df.dropna(inplace=True)
 
@@ -87,6 +92,7 @@ if uploaded_file:
                     plot_forecast_chart(forecast, model)
 
     except Exception as e:
-        st.error(f"Data processing error: {e}")
+        st.error(f"⚠️ Data processing error: {e}")
 else:
-    st.info("Please upload a CSV file to begin.")
+    st.info("📎 Please upload a CSV file to begin.")
+
