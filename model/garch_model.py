@@ -1,26 +1,49 @@
 import pandas as pd
-from arch import arch_model
+import numpy as np
+import shap
+import xgboost as xgb
+from sklearn.metrics import mean_absolute_error
+import matplotlib.pyplot as plt
 
-def run_garch_forecast(df, forecast_days, currency):
+def run_xgboost_with_shap(df, forecast_days, currency):
     df = df.copy()
-    df['Return'] = df['Close'].pct_change().dropna()
-    returns = df['Return'].dropna() * 100
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+    df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+    df = df.dropna()
 
-    model = arch_model(returns, vol='Garch', p=1, q=1)
-    garch_fit = model.fit(disp="off")
+    df['Day'] = df['Date'].dt.day
+    df['Month'] = df['Date'].dt.month
+    df['Year'] = df['Date'].dt.year
 
-    forecast_result = garch_fit.forecast(horizon=forecast_days)
-    volatility = forecast_result.variance.values[-1, :]
-    predicted_returns = forecast_result.mean.values[-1, :]
+    features = ['Open', 'High', 'Low', 'Volume', 'Day', 'Month', 'Year']
+    target = 'Close'
 
-    last_price = df['Close'].iloc[-1]
-    forecast_prices = [last_price * (1 + predicted_returns[0]/100)]
-    for i in range(1, forecast_days):
-        next_price = forecast_prices[-1] * (1 + predicted_returns[i]/100)
-        forecast_prices.append(next_price)
+    X = df[features]
+    y = df[target]
+    
+    model = xgb.XGBRegressor(objective='reg:squarederror')
+    model.fit(X, y)
 
-    forecast_dates = pd.date_range(start=df['Date'].iloc[-1] + pd.Timedelta(days=1), periods=forecast_days)
-    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast': forecast_prices})
-    volatility_df = pd.DataFrame({'Date': forecast_dates, 'Volatility': volatility})
+    future_dates = pd.date_range(start=df['Date'].iloc[-1] + pd.Timedelta(days=1), periods=forecast_days)
+    future_df = pd.DataFrame({
+        'Open': [df['Open'].mean()] * forecast_days,
+        'High': [df['High'].mean()] * forecast_days,
+        'Low': [df['Low'].mean()] * forecast_days,
+        'Volume': [df['Volume'].mean()] * forecast_days,
+        'Day': future_dates.day,
+        'Month': future_dates.month,
+        'Year': future_dates.year,
+    })
 
-    return forecast_df, volatility_df
+    future_preds = model.predict(future_df)
+    forecast_df = pd.DataFrame({'Date': future_dates, 'Forecast': future_preds})
+
+    explainer = shap.Explainer(model)
+    shap_values = explainer(X)
+    shap_plot = shap.plots.beeswarm(shap_values, show=False)
+    plt.title("SHAP Feature Importance")
+
+    mae = mean_absolute_error(y, model.predict(X))
+
+    return forecast_df, mae, plt
