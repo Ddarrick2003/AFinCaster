@@ -1,48 +1,43 @@
 import numpy as np
 import pandas as pd
-import streamlit as st
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
 
 def run_lstm_forecast(df, forecast_days, currency):
-    df = df.copy()
-    df = df.sort_values("Date")
-    df = df.dropna(subset=["Close"])  # Remove NaNs
+    df = df[['Date', 'Close']].copy()
+    df.set_index('Date', inplace=True)
+    data = df.values
 
-    data = df[["Close"]].astype("float32").values
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(data)
 
+    look_back = 30
     X, y = [], []
-    lookback = 30
-    for i in range(lookback, len(scaled_data) - forecast_days):
-        X.append(scaled_data[i - lookback:i])
-        y.append(scaled_data[i:i + forecast_days].flatten())
+    for i in range(look_back, len(scaled_data) - forecast_days):
+        X.append(scaled_data[i - look_back:i])
+        y.append(scaled_data[i:i + forecast_days])
 
-    if len(X) == 0 or len(y) == 0:
-        st.error("❌ Not enough data after preprocessing to train LSTM. Try with more rows.")
-        return
-
-    X = np.array(X).astype("float32")
-    y = np.array(y).astype("float32")
-    X_train, y_train = X[:-1], y[:-1]
+    X, y = np.array(X), np.array(y)
 
     model = Sequential()
-    model.add(LSTM(units=50, return_sequences=False, input_shape=(X.shape[1], X.shape[2])))
+    model.add(LSTM(50, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
+    model.add(LSTM(50))
     model.add(Dense(forecast_days))
-    model.compile(optimizer='adam', loss='mse')
-    model.fit(X_train, y_train, epochs=20, batch_size=32, verbose=0)
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.fit(X, y[:, :, 0], epochs=10, batch_size=16, verbose=0)
 
-    last_sequence = scaled_data[-lookback:].reshape(1, lookback, 1).astype("float32")
-    forecast_scaled = model.predict(last_sequence)[0]
-    
-    forecast = scaler.inverse_transform(forecast_scaled.reshape(-1, 1)).flatten()
+    recent_data = scaled_data[-look_back:]
+    recent_data = np.expand_dims(recent_data, axis=0)
+    prediction_scaled = model.predict(recent_data)[0]
+    prediction = scaler.inverse_transform(prediction_scaled.reshape(-1, 1)).flatten()
 
-    st.subheader("📈 LSTM Forecast")
-    future_dates = pd.date_range(start=df["Date"].iloc[-1] + pd.Timedelta(days=1), periods=forecast_days)
-    forecast_df = pd.DataFrame({f"Forecast ({currency})": forecast}, index=future_dates)
-    st.line_chart(forecast_df)
+    forecast_dates = pd.date_range(df.index[-1], periods=forecast_days + 1, freq='D')[1:]
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Predicted_Price': prediction})
+    forecast_df['Price'] = forecast_df['Predicted_Price']
+    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
 
-    st.metric("📌 Final Predicted Price", f"{forecast[-1]:,.2f} {currency}")
+    actual = df['Close'].values[-forecast_days:]
+    mae = np.mean(np.abs(prediction[:len(actual)] - actual))
+
+    return forecast_df, mae
