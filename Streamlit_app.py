@@ -52,14 +52,17 @@ uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        df['Date'] = pd.to_datetime(df['Date'])
         df = df.sort_values(by='Date')
 
-        # 🛠 Fix non-numeric Volume column if needed
-        if 'Volume' in df.columns and df['Volume'].dtype == 'object':
-            df['Volume'] = pd.to_numeric(df['Volume'].astype(str).str.replace(',', ''), errors='coerce')
+        # Force conversion of non-numeric columns like 'Volume'
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                try:
+                    df[col] = pd.to_numeric(df[col].str.replace(',', '').str.replace('-', ''), errors='coerce')
+                except:
+                    pass
 
-        # Drop NaNs only if auto_clean is selected
         if auto_clean:
             df.dropna(inplace=True)
 
@@ -71,28 +74,42 @@ if uploaded_file:
             models_to_run = [selected_model] if not run_all else ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"]
 
             for model in models_to_run:
-                st.markdown(f"### 🔮 {model} Forecast")
-                if model == "LSTM":
-                    forecast, mae = run_lstm_forecast(df, forecast_days, currency)
-                    plot_forecast_chart(forecast, model)
-                    display_mae_chart(mae)
-                elif model == "GARCH":
-                    forecast, volatility = run_garch_forecast(df, forecast_days, currency)
-                    plot_volatility_chart(forecast, volatility)
-                elif model == "XGBoost":
-                    forecast, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
-                    plot_forecast_chart(forecast, model)
-                    display_mae_chart(mae)
-                    st.pyplot(shap_plot)
-                elif model == "Informer":
-                    forecast = run_informer(df, forecast_days, currency)
-                    plot_forecast_chart(forecast, model)
-                elif model == "Autoformer":
-                    forecast = run_autoformer(df, forecast_days, currency)
-                    plot_forecast_chart(forecast, model)
+                st.markdown(f"---\n### 🔮 {model} Forecast")
+                with st.container():
+                    if model == "LSTM":
+                        forecast_df, mae = run_lstm_forecast(df, forecast_days, currency)
+                        plot_forecast_chart(forecast_df, model)
+                        display_mae_chart(mae)
+                        next_price = forecast_df.iloc[0]['Forecast']
+                        st.metric("📈 Next Day Predicted Price (LSTM)", f"{currency} {next_price:,.2f}")
+
+                    elif model == "GARCH":
+                        forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
+                        plot_volatility_chart(forecast_df, volatility_df)
+                        next_price = forecast_df.iloc[0]['Forecast']
+                        st.metric("📈 Next Day Predicted Price (GARCH)", f"{currency} {next_price:,.2f}")
+
+                    elif model == "XGBoost":
+                        forecast_df, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
+                        plot_forecast_chart(forecast_df, model)
+                        display_mae_chart(mae)
+                        next_price = forecast_df.iloc[0]['Forecast']
+                        st.metric("📈 Next Day Predicted Price (XGBoost)", f"{currency} {next_price:,.2f}")
+                        st.pyplot(shap_plot)
+
+                    elif model == "Informer":
+                        forecast_df = run_informer(df, forecast_days, currency)
+                        plot_forecast_chart(forecast_df, model)
+                        next_price = forecast_df.iloc[0]['Forecast']
+                        st.metric("📈 Next Day Predicted Price (Informer)", f"{currency} {next_price:,.2f}")
+
+                    elif model == "Autoformer":
+                        forecast_df = run_autoformer(df, forecast_days, currency)
+                        plot_forecast_chart(forecast_df, model)
+                        next_price = forecast_df.iloc[0]['Forecast']
+                        st.metric("📈 Next Day Predicted Price (Autoformer)", f"{currency} {next_price:,.2f}")
 
     except Exception as e:
-        st.error(f"⚠️ Data processing error: {e}")
+        st.error(f"Data processing error: {e}")
 else:
-    st.info("📎 Please upload a CSV file to begin.")
-
+    st.info("Please upload a CSV file to begin.")
