@@ -1,22 +1,28 @@
+# 📁 model/garch_model.py
+
 import pandas as pd
+import numpy as np
 from arch import arch_model
 
-def run_garch_forecast(df, forecast_days, currency):
-    df = df[['Date', 'Close']].copy()
-    df.set_index('Date', inplace=True)
-    returns = 100 * df['Close'].pct_change().dropna()
+def run_garch_forecast(df, forecast_days, currency="KSh"):
+    df = df.copy()
+    df['Returns'] = df['Close'].pct_change().dropna()
+    returns = df['Returns'].dropna() * 100
 
     model = arch_model(returns, vol='Garch', p=1, q=1)
-    res = model.fit(disp="off")
+    res = model.fit(disp='off')
     forecast = res.forecast(horizon=forecast_days)
 
-    volatility = forecast.variance.values[-1, :] ** 0.5
+    forecast_variance = forecast.variance.values[-1, :]
+    forecast_volatility = np.sqrt(forecast_variance)
+
     last_price = df['Close'].iloc[-1]
-    forecast_prices = [last_price * (1 + 0.01 * vol) for vol in volatility]
+    simulated_prices = [last_price * (1 + np.random.normal(0, vol / 100)) for vol in forecast_volatility]
 
-    forecast_dates = pd.date_range(df.index[-1], periods=forecast_days + 1, freq='D')[1:]
-    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Predicted_Price': forecast_prices})
-    forecast_df['Price'] = forecast_df['Predicted_Price']
-    forecast_df['Price'] = forecast_df['Price'].apply(lambda x: x * 144 if currency == "KSh" else x)
+    forecast_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast': simulated_prices, 'Volatility': forecast_volatility})
 
-    return forecast_df, volatility
+    if currency == "KSh":
+        forecast_df['Forecast'] *= 157
+
+    return forecast_df[['Date', 'Forecast']], forecast_df['Volatility']
