@@ -8,11 +8,15 @@ import matplotlib.pyplot as plt
 
 def run_xgboost_with_shap(df, forecast_days, currency="KSh"):
     df = df.copy()
-    
-    # Ensure correct data types for numeric columns
-    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-    df.dropna(inplace=True)
 
+    # Ensure Date is datetime
+    if not pd.api.types.is_datetime64_any_dtype(df['Date']):
+        df['Date'] = pd.to_datetime(df['Date'])
+
+    # Drop rows with missing values
+    df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
+
+    # Target is Close price shifted by forecast_days
     df['Target'] = df['Close'].shift(-forecast_days)
     df.dropna(inplace=True)
 
@@ -20,26 +24,40 @@ def run_xgboost_with_shap(df, forecast_days, currency="KSh"):
     X = df[features]
     y = df['Target']
 
-    model = xgb.XGBRegressor(enable_categorical=False, verbosity=0)
+    # Train XGBoost
+    model = xgb.XGBRegressor()
     model.fit(X, y)
 
+    # Predict future values using the last available rows
     future_X = df[features].iloc[-forecast_days:]
+    future_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
     predictions = model.predict(future_X)
 
-    forecast_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
-    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast': predictions})
-
+    # Currency conversion if required
     if currency == "KSh":
-        forecast_df['Forecast'] *= 157
+        predictions = predictions * 157
 
-    mae = mean_absolute_error(df['Close'].iloc[-forecast_days:], predictions[:len(df['Close'].iloc[-forecast_days:])])
+    # Prepare forecast DataFrame
+    forecast_df = pd.DataFrame({
+        'Date': future_dates,
+        'Forecast': predictions
+    })
 
+    # Calculate MAE (aligning prediction with last actuals)
+    try:
+        mae_window = min(len(df), forecast_days)
+        actuals = df['Close'].iloc[-mae_window:]
+        preds_for_mae = model.predict(X.iloc[-mae_window:])
+        if currency == "KSh":
+            preds_for_mae = preds_for_mae * 157
+        mae = mean_absolute_error(actuals, preds_for_mae)
+    except Exception:
+        mae = None
+
+    # SHAP Feature Importance
     explainer = shap.Explainer(model)
     shap_values = explainer(X)
 
-    # Plot SHAP summary
     fig, ax = plt.subplots()
     shap.summary_plot(shap_values, X, plot_type="bar", show=False)
-    plt.tight_layout()
-
     return forecast_df, mae, fig
