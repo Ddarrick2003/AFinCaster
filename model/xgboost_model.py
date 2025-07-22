@@ -11,8 +11,8 @@ def run_xgboost_with_shap(df, forecast_days, currency="KSh"):
     df = df.copy()
     
     # Ensure 'Volume' is numeric
-    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-    df.dropna(subset=['Volume'], inplace=True)
+    df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+    df.dropna(subset=['Close'], inplace=True)
     
     # Create target column
     df['Target'] = df['Close'].shift(-forecast_days)
