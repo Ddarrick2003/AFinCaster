@@ -19,10 +19,8 @@ from model.transformer_models import run_informer, run_autoformer
 # 📅 Holiday & Weekend Logic
 # =========================
 
-# Customize this list with local/national stock exchange holidays
 CUSTOM_HOLIDAYS = pd.to_datetime([
     "2025-01-01", "2025-04-18", "2025-12-25",  # Sample holidays
-    # Add more as needed
 ])
 
 def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
@@ -77,7 +75,8 @@ export_data = []  # To hold model output for export
 if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
-        df['Date'] = pd.to_datetime(df['Date'])
+        df.columns = df.columns.str.strip()  # Remove whitespace from column names
+        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)  # 👈 FIXED DATE PARSING
         df = df.sort_values(by='Date')
 
         # Convert numeric-like strings
@@ -91,9 +90,9 @@ if uploaded_file:
         if auto_clean:
             df.dropna(inplace=True)
 
-        # Filter out weekends and known holidays
-        df = df[df['Date'].dt.weekday < 5]  # Remove weekends
-        df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]  # Remove holidays
+        # Filter out weekends and holidays
+        df = df[df['Date'].dt.weekday < 5]
+        df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
 
         st.markdown(f"### 🧾 Preview of `{task_name}` Dataset")
         st.dataframe(df.tail(), use_container_width=True)
@@ -130,9 +129,7 @@ if uploaded_file:
                         forecast_df = run_autoformer(df, forecast_days, currency)
                         plot_forecast_chart(forecast_df, model)
 
-                    # =========================
-                    # 🔔 Alert, Signal, Export
-                    # =========================
+                    # ===== 🗓️ Fix Prediction Date =====
                     last_date = df['Date'].max()
                     next_trading_day = get_next_trading_day(last_date)
 
@@ -142,6 +139,7 @@ if uploaded_file:
                         forecast_df.insert(0, 'Date', pd.NaT)
                     forecast_df.at[0, 'Date'] = next_trading_day
 
+                    # ===== 📌 Display Forecast Summary =====
                     last_close = df['Close'].iloc[-1]
                     change = next_price - last_close
                     percent = (change / last_close) * 100
