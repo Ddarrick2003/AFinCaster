@@ -4,6 +4,8 @@
 
 import streamlit as st
 import pandas as pd
+from datetime import timedelta
+
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
@@ -12,6 +14,22 @@ from model.lstm_model import run_lstm_forecast
 from model.garch_model import run_garch_forecast
 from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
+
+# =========================
+# 📅 Holiday & Weekend Logic
+# =========================
+
+# Customize this list with local/national stock exchange holidays
+CUSTOM_HOLIDAYS = pd.to_datetime([
+    "2025-01-01", "2025-04-18", "2025-12-25",  # Sample holidays
+    # Add more as needed
+])
+
+def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
+    next_day = last_date + timedelta(days=1)
+    while next_day.weekday() >= 5 or next_day in holidays:
+        next_day += timedelta(days=1)
+    return next_day
 
 # =========================
 # Page & Theme Setup
@@ -73,6 +91,10 @@ if uploaded_file:
         if auto_clean:
             df.dropna(inplace=True)
 
+        # Filter out weekends and known holidays
+        df = df[df['Date'].dt.weekday < 5]  # Remove weekends
+        df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]  # Remove holidays
+
         st.markdown(f"### 🧾 Preview of `{task_name}` Dataset")
         st.dataframe(df.tail(), use_container_width=True)
 
@@ -113,13 +135,21 @@ if uploaded_file:
                     # =========================
                     next_price = forecast_df.iloc[0]['Forecast']
                     last_close = df['Close'].iloc[-1]
+                    last_date = df['Date'].max()
+
+                    next_trading_day = get_next_trading_day(last_date)
+
                     change = next_price - last_close
                     percent = (change / last_close) * 100
                     direction = "📈 Increase" if change > 0 else "📉 Decrease"
                     signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
 
                     alert_color = "green" if change > 0 else "red"
-                    st.metric(f"📌 {model} Next Day Price", f"{currency} {next_price:,.2f}")
+
+                    st.metric(
+                        f"📌 {model} Forecast for {next_trading_day.strftime('%a, %b %d')}",
+                        f"{currency} {next_price:,.2f}"
+                    )
                     st.markdown(
                         f"<span style='color:{alert_color}; font-weight:bold;'>🔔 Alert: {direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</span><br>"
                         f"<span style='color:{'green' if 'BUY' in signal else 'red' if 'SELL' in signal else 'orange'}; font-weight:bold;'>📢 {signal}</span>",
@@ -133,7 +163,8 @@ if uploaded_file:
                         "Change": change,
                         "Percent Change": percent,
                         "Direction": direction,
-                        "Signal": signal
+                        "Signal": signal,
+                        "Next Trading Day": next_trading_day.strftime('%Y-%m-%d')
                     })
 
         # =========================
