@@ -133,17 +133,20 @@ if uploaded_file:
                     # =========================
                     # 🔔 Alert, Signal, Export
                     # =========================
-                    next_price = forecast_df.iloc[0]['Forecast']
-                    last_close = df['Close'].iloc[-1]
                     last_date = df['Date'].max()
-
                     next_trading_day = get_next_trading_day(last_date)
 
+                    next_price = forecast_df.iloc[0]['Forecast']
+
+                    if 'Date' not in forecast_df.columns:
+                        forecast_df.insert(0, 'Date', pd.NaT)
+                    forecast_df.at[0, 'Date'] = next_trading_day
+
+                    last_close = df['Close'].iloc[-1]
                     change = next_price - last_close
                     percent = (change / last_close) * 100
                     direction = "📈 Increase" if change > 0 else "📉 Decrease"
                     signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
-
                     alert_color = "green" if change > 0 else "red"
 
                     st.metric(
