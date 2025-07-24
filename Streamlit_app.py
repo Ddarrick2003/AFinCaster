@@ -1,5 +1,5 @@
 # =========================
-# 📁 FILE: streamlit_app.py
+# 📁 FILE: streamlit_app.py (Enhanced with Volatility and Improved UX)
 # =========================
 
 import streamlit as st
@@ -16,11 +16,11 @@ from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
 # =========================
-# 📅 Holiday & Weekend Logic
+# 🗕️ Holiday & Weekend Logic
 # =========================
 
 CUSTOM_HOLIDAYS = pd.to_datetime([
-    "2025-01-01", "2025-04-18", "2025-12-25",  # Sample holidays
+    "2025-01-01", "2025-04-18", "2025-12-25",
 ])
 
 def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
@@ -30,7 +30,7 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
     return next_day
 
 # =========================
-# Page & Theme Setup
+# 🗄️ Page & Theme Setup
 # =========================
 set_page_config()
 inject_custom_css()
@@ -54,7 +54,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# Task Configuration
+# 🗒️ Task Configuration
 # =========================
 with st.expander("📝 Configure Analysis Task", expanded=True):
     task_name = st.text_input("Task Name", "My Forecast Task")
@@ -65,21 +65,20 @@ with st.expander("📝 Configure Analysis Task", expanded=True):
     auto_clean = st.checkbox("Auto Clean Data (drop NaNs)", value=False)
 
 # =========================
-# Upload CSV Data
+# 📤 Upload CSV Data
 # =========================
-st.subheader("📤 Upload Historical Price Data")
+st.subheader("📄 Upload Historical Price Data")
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
-export_data = []  # To hold model output for export
+export_data = []
 
 if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
-        df.columns = df.columns.str.strip()  # Remove whitespace from column names
-        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)  # 👈 FIXED DATE PARSING
+        df.columns = df.columns.str.strip()
+        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
         df = df.sort_values(by='Date')
 
-        # Convert numeric-like strings
         for col in df.columns:
             if df[col].dtype == 'object':
                 try:
@@ -90,16 +89,12 @@ if uploaded_file:
         if auto_clean:
             df.dropna(inplace=True)
 
-        # Filter out weekends and holidays
         df = df[df['Date'].dt.weekday < 5]
         df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
 
-        st.markdown(f"### 🧾 Preview of `{task_name}` Dataset")
+        st.markdown(f"### 🧼 Preview of `{task_name}` Dataset")
         st.dataframe(df.tail(), use_container_width=True)
 
-        # =========================
-        # Forecast Execution
-        # =========================
         with st.spinner("Running forecast(s)..."):
             models_to_run = [selected_model] if not run_all else ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"]
 
@@ -129,7 +124,6 @@ if uploaded_file:
                         forecast_df = run_autoformer(df, forecast_days, currency)
                         plot_forecast_chart(forecast_df, model)
 
-                    # ===== 🗓️ Fix Prediction Date =====
                     last_date = df['Date'].max()
                     next_trading_day = get_next_trading_day(last_date)
 
@@ -139,7 +133,6 @@ if uploaded_file:
                         forecast_df.insert(0, 'Date', pd.NaT)
                     forecast_df.at[0, 'Date'] = next_trading_day
 
-                    # ===== 📌 Display Forecast Summary =====
                     last_close = df['Close'].iloc[-1]
                     change = next_price - last_close
                     percent = (change / last_close) * 100
@@ -176,7 +169,7 @@ if uploaded_file:
             export_df = pd.DataFrame(export_data)
             st.dataframe(export_df)
             csv = export_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Forecast Summary as CSV", csv, file_name="forecast_summary.csv", mime="text/csv")
+            st.download_button("📅 Download Forecast Summary as CSV", csv, file_name="forecast_summary.csv", mime="text/csv")
 
     except Exception as e:
         st.error(f"Data processing error: {e}")
