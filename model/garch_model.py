@@ -1,37 +1,32 @@
-# ========================
-# 📁 FILE: model/garch_model.py
-# ========================
-
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from arch import arch_model
 
-def run_garch_forecast(df, forecast_days=10, currency="KSh"):
+def run_garch_forecast(df, forecast_days, currency="KSh"):
     df = df.copy()
-    df = df[['Date', 'Close']].dropna()
-    df.set_index('Date', inplace=True)
+    df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+    df.dropna(subset=['Close'], inplace=True)
 
     returns = 100 * df['Close'].pct_change().dropna()
-    am = arch_model(returns, vol='Garch', p=1, q=1)
-    
-    try:
-        res = am.fit(disp="off")
-    except Exception as e:
-        raise RuntimeError(f"GARCH Error: {e}")
 
-    forecast = res.forecast(horizon=forecast_days)
-    variance_forecast = forecast.variance.values[-1, :]
-    mean_forecast = forecast.mean.values[-1, :]
+    model = arch_model(returns, vol='Garch', p=1, q=1)
+    res = model.fit(disp="off")
+    forecasts = res.forecast(horizon=forecast_days)
 
-    last_price = df['Close'].iloc[-1]
-    price_forecast = last_price * (1 + (mean_forecast / 100)).cumprod()
+    vol = forecasts.variance.values[-1, :]
+    forecast_volatility = np.sqrt(vol)
 
-    future_dates = pd.date_range(start=df.index[-1] + pd.Timedelta(days=1), periods=forecast_days, freq='D')
-    
-    forecast_df = pd.DataFrame({'Date': future_dates, 'Forecast': price_forecast})
-    volatility_df = pd.DataFrame({'Date': future_dates, 'Volatility': np.sqrt(variance_forecast)})
+    forecast_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
+    forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast': df['Close'].iloc[-1]})  # GARCH does not predict price
+    volatility_df = pd.DataFrame({'Date': forecast_dates, 'Volatility': forecast_volatility})
 
-    forecast_df['Forecast'] = forecast_df['Forecast'].astype(float)
-    volatility_df['Volatility'] = volatility_df['Volatility'].astype(float)
+    # Plot
+    fig, ax = plt.subplots()
+    ax.plot(volatility_df['Date'], volatility_df['Volatility'], marker='o', color='orange')
+    ax.set_title("GARCH Forecasted Volatility")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Volatility")
+    ax.grid(True)
 
-    return forecast_df, volatility_df
+    return forecast_df, volatility_df, fig
