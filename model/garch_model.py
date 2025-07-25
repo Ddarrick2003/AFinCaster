@@ -29,4 +29,4 @@ def run_garch_forecast(df, forecast_days, currency="KSh"):
     ax.set_ylabel("Volatility")
     ax.grid(True)
 
-    return forecast_df, volatility_df, fig
+    return forecast_df, volatility_df
