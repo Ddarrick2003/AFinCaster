@@ -192,10 +192,11 @@ if uploaded_file:
             for model in models_to_run:
                 st.markdown(f"---\n### 🔮 {model} Forecast")
                 with st.container():
-                    if model == "LSTM":
+if model == "LSTM":
     forecast_df, mae = run_lstm_forecast(df, forecast_days, currency)
     plot_forecast_chart(forecast_df, model)
     display_mae_chart(mae)
+
 
 elif model == "GARCH":
     forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
