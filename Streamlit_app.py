@@ -198,11 +198,12 @@ if uploaded_file:
                         display_mae_chart(mae)
 
                     elif model == "GARCH":
-    forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
+                         forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
 
-    # Forecast Price Chart
-    st.markdown("### 📉 Forecasted Price")
-    plot_forecast_chart(forecast_df, model)
+
+                        # Forecast Price Chart
+                       st.markdown("### 📉 Forecasted Price")
+                        plot_forecast_chart(forecast_df, model)
 
 
                     # Volatility Card & Chart
