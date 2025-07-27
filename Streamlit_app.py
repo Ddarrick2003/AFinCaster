@@ -193,15 +193,35 @@ if uploaded_file:
                     signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
                     alert_color = "green" if change > 0 else "red"
 
-                    st.metric(
-                        f"📌 {model} Forecast for {next_trading_day.strftime('%a, %b %d')}",
-                        f"{currency} {next_price:,.2f}"
-                    )
-                    st.markdown(
-                        f"<span style='color:{alert_color}; font-weight:bold;'>🔔 Alert: {direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</span><br>"
-                        f"<span style='color:{'green' if 'BUY' in signal else 'red' if 'SELL' in signal else 'orange'}; font-weight:bold;'>📢 {signal}</span>",
-                        unsafe_allow_html=True
-                    )
+                    # Custom card-style layout for forecast metrics
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown(f"""
+        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+            <div style="font-size:14px; color:#888;">Next Trading Day</div>
+            <div style="font-size:22px; font-weight:700;">{next_trading_day.strftime('%b %d, %Y')}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+            <div style="font-size:14px; color:#888;">Forecasted Price</div>
+            <div style="font-size:22px; font-weight:700;">{currency} {next_price:,.2f}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
+    st.markdown(f"""
+        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+            <div style="font-size:14px; color:#888;">Forecast Signal</div>
+            <div style="font-size:20px; font-weight:700; color:{signal_color};">{signal}</div>
+            <div style="font-size:13px; color:#666;">{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 
                     export_data.append({
                         "Model": model,
