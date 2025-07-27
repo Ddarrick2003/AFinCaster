@@ -17,7 +17,7 @@ from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
 # =========================
-# 🗵️ Holiday & Weekend Logic
+# 🗕️ Holiday & Weekend Logic
 # =========================
 
 CUSTOM_HOLIDAYS = pd.to_datetime([
@@ -97,6 +97,11 @@ st.markdown("""
         <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
     </div>
 """, unsafe_allow_html=True)
+
+# (Remaining logic continues unchanged from user-provided code...)
+
+# ✅ Custom CSS, Upload Panel, Forecast Card Styling, and Font integrated.
+
 
 
 # =========================
