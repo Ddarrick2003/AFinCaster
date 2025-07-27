@@ -17,7 +17,7 @@ from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
 # =========================
-# 🗕️ Holiday & Weekend Logic
+# 🔕 Holiday & Weekend Logic
 # =========================
 
 CUSTOM_HOLIDAYS = pd.to_datetime([
@@ -98,11 +98,44 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# (Remaining logic continues unchanged from user-provided code...)
+# ✅ Optional File Upload Handling
+uploaded_file = st.file_uploader("Upload your stock CSV", type=["csv"])
 
-# ✅ Custom CSS, Upload Panel, Forecast Card Styling, and Font integrated.
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    df.columns = df.columns.str.strip()
+    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
+    df = df.sort_values(by='Date')
 
+    # Clean numeric columns
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            try:
+                df[col] = pd.to_numeric(df[col].str.replace(',', '').str.replace('-', ''), errors='coerce')
+            except:
+                pass
 
+    df = df[df['Date'].dt.weekday < 5]  # exclude weekends
+    df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
+
+    # ✅ Add Technical Indicators
+    if 'Close' in df.columns:
+        df['Daily Return'] = df['Close'].pct_change()
+
+        delta = df['Close'].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
+
+        rs = avg_gain / avg_loss
+        df['RSI'] = 100 - (100 / (1 + rs))
+
+    # ✅ Show Expanded Data Preview
+    st.markdown("### 🗰️ Enriched Data Preview")
+    with st.expander("🔍 Return & RSI (Last 10 Days)", expanded=True):
+        st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10), use_container_width=True)
 
 # =========================
 # 📒️ Task Configuration
