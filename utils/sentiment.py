@@ -1,33 +1,76 @@
 # utils/sentiment.py
 
-import snscrape.modules.twitter as sntwitter
+import tweepy
 import pandas as pd
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from transformers import pipeline
+from textblob import TextBlob
+import streamlit as st
 
-# ---------- Twitter Sentiment using VADER ----------
-def fetch_twitter_sentiment(query, max_tweets=100):
-    analyzer = SentimentIntensityAnalyzer()
-    tweets = []
+# Load Twitter API token securely
+BEARER_TOKEN = st.secrets["TWITTER_BEARER_TOKEN"]
 
-    for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
-        if i >= max_tweets:
-            break
-        tweets.append(tweet.content)
+# Initialize Tweepy client
+client = tweepy.Client(bearer_token=BEARER_TOKEN)
 
-    df = pd.DataFrame(tweets, columns=['Tweet'])
-    df['Sentiment'] = df['Tweet'].apply(lambda text: analyzer.polarity_scores(text)['compound'])
-    df['Label'] = df['Sentiment'].apply(lambda s: 'Positive' if s > 0.05 else 'Negative' if s < -0.05 else 'Neutral')
-    
+def fetch_tweets(keyword, max_results=20):
+    query = f"{keyword} lang:en -is:retweet"
+    try:
+        response = client.search_recent_tweets(query=query, tweet_fields=["created_at", "text"], max_results=max_results)
+        tweets = [tweet.text for tweet in response.data] if response.data else []
+        return tweets
+    except Exception as e:
+        st.error(f"Twitter API error: {e}")
+        return []
+
+def analyze_sentiment(text):
+    analysis = TextBlob(text)
+    polarity = analysis.sentiment.polarity
+    if polarity > 0.05:
+        return "Positive"
+    elif polarity < -0.05:
+        return "Negative"
+    else:
+        return "Neutral"
+
+def fetch_twitter_sentiment(keyword):
+    tweets = fetch_tweets(keyword)
+    sentiments = [analyze_sentiment(tweet) for tweet in tweets]
+    df = pd.DataFrame({"Tweet": tweets, "Sentiment": sentiments})
     return df
+# utils/sentiment.py
 
-# ---------- News Sentiment using FinBERT ----------
-def fetch_news_sentiment(news_list):
-    classifier = pipeline("sentiment-analysis", model="ProsusAI/finbert", tokenizer="ProsusAI/finbert")
-    results = classifier(news_list)
-    
-    df = pd.DataFrame(news_list, columns=['Headline'])
-    df['Label'] = [r['label'] for r in results]
-    df['Score'] = [r['score'] for r in results]
-    
+import tweepy
+import pandas as pd
+from textblob import TextBlob
+import streamlit as st
+
+# Load Twitter API token securely
+BEARER_TOKEN = st.secrets["TWITTER_BEARER_TOKEN"]
+
+# Initialize Tweepy client
+client = tweepy.Client(bearer_token=BEARER_TOKEN)
+
+def fetch_tweets(keyword, max_results=20):
+    query = f"{keyword} lang:en -is:retweet"
+    try:
+        response = client.search_recent_tweets(query=query, tweet_fields=["created_at", "text"], max_results=max_results)
+        tweets = [tweet.text for tweet in response.data] if response.data else []
+        return tweets
+    except Exception as e:
+        st.error(f"Twitter API error: {e}")
+        return []
+
+def analyze_sentiment(text):
+    analysis = TextBlob(text)
+    polarity = analysis.sentiment.polarity
+    if polarity > 0.05:
+        return "Positive"
+    elif polarity < -0.05:
+        return "Negative"
+    else:
+        return "Neutral"
+
+def fetch_twitter_sentiment(keyword):
+    tweets = fetch_tweets(keyword)
+    sentiments = [analyze_sentiment(tweet) for tweet in tweets]
+    df = pd.DataFrame({"Tweet": tweets, "Sentiment": sentiments})
     return df
