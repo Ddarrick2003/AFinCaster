@@ -18,6 +18,14 @@ ta
 xgboost
 shap
 torch
+tweepy
+nltk
+transformers
+torch
+vaderSentiment
+newspaper3k
+beautifulsoup4
+requests
 
 
 
