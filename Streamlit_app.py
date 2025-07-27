@@ -36,23 +36,68 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
 set_page_config()
 inject_custom_css()
 
+# ✅ Step 1: Inject Custom Modern UI CSS
 st.markdown("""
     <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 2rem;
-        }
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Space Grotesk', sans-serif;
+        background-color: #f3f3f3;
+        color: #1f1f1f;
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        padding-left: 3rem;
+        padding-right: 3rem;
+    }
+
+    h1, h2, h3, h4 {
+        font-weight: 700;
+        color: #121212;
+    }
+
+    .stButton>button {
+        background-color: #121212;
+        color: white;
+        border-radius: 12px;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        border: none;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .stButton>button:hover {
+        background-color: #2e2e2e;
+        transform: scale(1.02);
+    }
+
+    .stRadio > div {
+        gap: 1rem;
+    }
+
+    .stDataFrame {
+        background-color: white;
+        border-radius: 14px;
+        padding: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
+# Original header block stays here
 st.markdown("""
-    <div style='text-align: center;'>
+    <div style='text-align: center; margin-top: -30px;'>
         <h1 style='color: #2E8B57;'>📊 FinCaster – Intelligent Financial Forecasting</h1>
         <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
     </div>
 """, unsafe_allow_html=True)
+
 
 # =========================
 # 🗒️ Task Configuration
