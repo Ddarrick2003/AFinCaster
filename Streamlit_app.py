@@ -17,7 +17,7 @@ from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
 # =========================
-# 🗕️ Holiday & Weekend Logic
+# 🗵️ Holiday & Weekend Logic
 # =========================
 
 CUSTOM_HOLIDAYS = pd.to_datetime([
@@ -100,9 +100,9 @@ st.markdown("""
 
 
 # =========================
-# 🗒️ Task Configuration
+# 📒️ Task Configuration
 # =========================
-with st.expander("📝 Configure Analysis Task", expanded=True):
+with st.expander("📜 Configure Analysis Task", expanded=True):
     task_name = st.text_input("Task Name", "My Forecast Task")
     selected_model = st.selectbox("Select Forecasting Model", ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"])
     forecast_days = st.slider("Forecast Horizon (days)", min_value=5, max_value=30, value=10)
@@ -118,7 +118,7 @@ sentiment_symbol = st.text_input("Stock Symbol or Company Name", "Safaricom")
 sentiment_run = st.checkbox("Include Sentiment Analysis", value=True)
 
 # =========================
-# 📤 Upload CSV Data
+# 📄 Upload CSV Data
 # =========================
 st.subheader("📄 Upload Historical Price Data")
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
@@ -193,35 +193,33 @@ if uploaded_file:
                     signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
                     alert_color = "green" if change > 0 else "red"
 
-                    # Custom card-style layout for forecast metrics
-col1, col2, col3 = st.columns(3)
+                    col1, col2, col3 = st.columns(3)
 
-with col1:
-    st.markdown(f"""
-        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-            <div style="font-size:14px; color:#888;">Next Trading Day</div>
-            <div style="font-size:22px; font-weight:700;">{next_trading_day.strftime('%b %d, %Y')}</div>
-        </div>
-    """, unsafe_allow_html=True)
+                    with col1:
+                        st.markdown(f"""
+                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+                                <div style="font-size:14px; color:#888;">Next Trading Day</div>
+                                <div style="font-size:22px; font-weight:700;">{next_trading_day.strftime('%b %d, %Y')}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
 
-with col2:
-    st.markdown(f"""
-        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-            <div style="font-size:14px; color:#888;">Forecasted Price</div>
-            <div style="font-size:22px; font-weight:700;">{currency} {next_price:,.2f}</div>
-        </div>
-    """, unsafe_allow_html=True)
+                    with col2:
+                        st.markdown(f"""
+                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+                                <div style="font-size:14px; color:#888;">Forecasted Price</div>
+                                <div style="font-size:22px; font-weight:700;">{currency} {next_price:,.2f}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
 
-with col3:
-    signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
-    st.markdown(f"""
-        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-            <div style="font-size:14px; color:#888;">Forecast Signal</div>
-            <div style="font-size:20px; font-weight:700; color:{signal_color};">{signal}</div>
-            <div style="font-size:13px; color:#666;">{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
-        </div>
-    """, unsafe_allow_html=True)
-
+                    with col3:
+                        signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
+                        st.markdown(f"""
+                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+                                <div style="font-size:14px; color:#888;">Forecast Signal</div>
+                                <div style="font-size:20px; font-weight:700; color:{signal_color};">{signal}</div>
+                                <div style="font-size:13px; color:#666;">{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
+                            </div>
+                        """, unsafe_allow_html=True)
 
                     export_data.append({
                         "Model": model,
@@ -238,17 +236,17 @@ with col3:
         # 📊 Sentiment Analysis Section
         # =========================
         if sentiment_run:
-            st.markdown("---\n### 🗞️ Sentiment Analysis Summary")
+            st.markdown("---\n### 🗾️ Sentiment Analysis Summary")
             twitter_df = fetch_twitter_sentiment(sentiment_symbol)
             news_df = fetch_news_sentiment(sentiment_symbol)
 
-            st.markdown("#### 🐦 Twitter Sentiment")
+            st.markdown("#### 🔦 Twitter Sentiment")
             st.dataframe(twitter_df)
             st.markdown("#### 📰 News Sentiment")
             st.dataframe(news_df)
 
         # =========================
-        # 📤 Export Forecast Summary
+        # 📄 Export Forecast Summary
         # =========================
         if export_data:
             st.markdown("### 📄 Export Summary")
