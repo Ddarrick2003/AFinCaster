@@ -27,6 +27,7 @@ newspaper3k
 beautifulsoup4
 requests
 snscrape
+transformers
 
 
 
