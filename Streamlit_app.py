@@ -197,59 +197,7 @@ if uploaded_file:
                         plot_forecast_chart(forecast_df, model)
                         display_mae_chart(mae)
 
-                   elif model == "GARCH":
-    forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
-
-    # Forecasted Price Chart
-    st.markdown("### 📉 Forecasted Price")
-    plot_forecast_chart(forecast_df, model)
-
-    # Styled Volatility Card and Chart
-    st.markdown("""
-        <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px;
-                    box-shadow:0 4px 14px rgba(0,0,0,0.05); margin-top:2rem;">
-            <h4 style="margin-bottom:0.5rem; color:#121212;">📊 Forecasted Volatility</h4>
-            <p style="font-size:14px; color:#666;">This chart shows the predicted volatility (standard deviation of returns) for each forecasted day using GARCH.</p>
-        </div>
-    """, unsafe_allow_html=True)
-    plot_volatility_chart(forecast_df, volatility_df)
-
-    # Optional raw data table (in an expander)
-    with st.expander("🔍 Raw Volatility Data"):
-        st.dataframe(volatility_df, use_container_width=True)
-
-    # Volatility Summary Cards
-    avg_vol = volatility_df['Volatility'].mean()
-    max_vol = volatility_df['Volatility'].max()
-    min_vol = volatility_df['Volatility'].min()
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-            <div style="background-color:#ffffff; padding:1.2rem; border-radius:20px;
-                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                <div style="font-size:14px; color:#888;">Average Volatility</div>
-                <div style="font-size:22px; font-weight:700;">{avg_vol:.4f}</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-            <div style="background-color:#ffffff; padding:1.2rem; border-radius:20px;
-                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                <div style="font-size:14px; color:#888;">Max Volatility</div>
-                <div style="font-size:22px; font-weight:700;">{max_vol:.4f}</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"""
-            <div style="background-color:#ffffff; padding:1.2rem; border-radius:20px;
-                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                <div style="font-size:14px; color:#888;">Min Volatility</div>
-                <div style="font-size:22px; font-weight:700;">{min_vol:.4f}</div>
-            </div>
-        """, unsafe_allow_html=True)
+                 
 
                     elif model == "XGBoost":
                         forecast_df, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
