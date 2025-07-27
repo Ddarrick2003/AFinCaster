@@ -1,5 +1,5 @@
 # =========================
-# 📁 FILE: streamlit_app.py (Enhanced with Volatility and Improved UX)
+# 📁 FILE: streamlit_app.py (Enhanced with Volatility, Sentiment & Improved UX)
 # =========================
 
 import streamlit as st
@@ -15,8 +15,11 @@ from model.garch_model import run_garch_forecast
 from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
+from sentiment.vader_sentiment import fetch_tweets, analyze_vader_sentiment
+from sentiment.finbert_sentiment import analyze_news_sentiment
+
 # =========================
-# 🗕️ Holiday & Weekend Logic
+# 📅️ Holiday & Weekend Logic
 # =========================
 
 CUSTOM_HOLIDAYS = pd.to_datetime([
@@ -65,7 +68,7 @@ with st.expander("📝 Configure Analysis Task", expanded=True):
     auto_clean = st.checkbox("Auto Clean Data (drop NaNs)", value=False)
 
 # =========================
-# 📤 Upload CSV Data
+# 📄 Upload CSV Data
 # =========================
 st.subheader("📄 Upload Historical Price Data")
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
@@ -162,7 +165,7 @@ if uploaded_file:
                     })
 
         # =========================
-        # 📤 Export Forecast Summary
+        # 📄 Export Forecast Summary
         # =========================
         if export_data:
             st.markdown("### 📄 Export Summary")
@@ -170,6 +173,29 @@ if uploaded_file:
             st.dataframe(export_df)
             csv = export_df.to_csv(index=False).encode('utf-8')
             st.download_button("📅 Download Forecast Summary as CSV", csv, file_name="forecast_summary.csv", mime="text/csv")
+
+        # =========================
+        # 🧠 Sentiment Analysis
+        # =========================
+        st.markdown("### 🧠 Sentiment Analysis")
+
+        with st.expander("🤝 Twitter Sentiment"):
+            try:
+                tweets_df = fetch_tweets("NSE Kenya", count=100)
+                sentiment_df = analyze_vader_sentiment(tweets_df)
+                st.dataframe(sentiment_df[["created_at", "text", "sentiment"]].head())
+                st.bar_chart(sentiment_df["sentiment"].value_counts())
+            except Exception as e:
+                st.warning(f"Twitter sentiment unavailable: {e}")
+
+        with st.expander("📰 News Sentiment"):
+            try:
+                news_df = pd.read_csv("data/news_articles.csv")
+                finbert_df = analyze_news_sentiment(news_df)
+                st.dataframe(finbert_df[["date", "text", "prediction", "confidence"]].head())
+                st.bar_chart(finbert_df["prediction"].value_counts())
+            except Exception as e:
+                st.warning(f"News sentiment unavailable: {e}")
 
     except Exception as e:
         st.error(f"Data processing error: {e}")
