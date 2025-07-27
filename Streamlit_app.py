@@ -1,5 +1,5 @@
 # =========================
-# 📁 FILE: streamlit_app.py (Enhanced with Volatility, Sentiment & Improved UX)
+# 📁 FILE: streamlit_app.py (Enhanced with Sentiment Analysis)
 # =========================
 
 import streamlit as st
@@ -9,17 +9,15 @@ from datetime import timedelta
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
+from utils.sentiment import fetch_twitter_sentiment, fetch_news_sentiment
 
 from model.lstm_model import run_lstm_forecast
 from model.garch_model import run_garch_forecast
 from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
-from sentiment.vader_sentiment import fetch_tweets, analyze_vader_sentiment
-from sentiment.finbert_sentiment import analyze_news_sentiment
-
 # =========================
-# 📅️ Holiday & Weekend Logic
+# 🗕️ Holiday & Weekend Logic
 # =========================
 
 CUSTOM_HOLIDAYS = pd.to_datetime([
@@ -68,7 +66,14 @@ with st.expander("📝 Configure Analysis Task", expanded=True):
     auto_clean = st.checkbox("Auto Clean Data (drop NaNs)", value=False)
 
 # =========================
-# 📄 Upload CSV Data
+# 🧠 Optional Sentiment Modules
+# =========================
+st.subheader("💬 Optional Sentiment Analysis")
+sentiment_symbol = st.text_input("Stock Symbol or Company Name", "Safaricom")
+sentiment_run = st.checkbox("Include Sentiment Analysis", value=True)
+
+# =========================
+# 📤 Upload CSV Data
 # =========================
 st.subheader("📄 Upload Historical Price Data")
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
@@ -165,7 +170,20 @@ if uploaded_file:
                     })
 
         # =========================
-        # 📄 Export Forecast Summary
+        # 📊 Sentiment Analysis Section
+        # =========================
+        if sentiment_run:
+            st.markdown("---\n### 🗞️ Sentiment Analysis Summary")
+            twitter_df = fetch_twitter_sentiment(sentiment_symbol)
+            news_df = fetch_news_sentiment(sentiment_symbol)
+
+            st.markdown("#### 🐦 Twitter Sentiment")
+            st.dataframe(twitter_df)
+            st.markdown("#### 📰 News Sentiment")
+            st.dataframe(news_df)
+
+        # =========================
+        # 📤 Export Forecast Summary
         # =========================
         if export_data:
             st.markdown("### 📄 Export Summary")
@@ -173,29 +191,6 @@ if uploaded_file:
             st.dataframe(export_df)
             csv = export_df.to_csv(index=False).encode('utf-8')
             st.download_button("📅 Download Forecast Summary as CSV", csv, file_name="forecast_summary.csv", mime="text/csv")
-
-        # =========================
-        # 🧠 Sentiment Analysis
-        # =========================
-        st.markdown("### 🧠 Sentiment Analysis")
-
-        with st.expander("🤝 Twitter Sentiment"):
-            try:
-                tweets_df = fetch_tweets("NSE Kenya", count=100)
-                sentiment_df = analyze_vader_sentiment(tweets_df)
-                st.dataframe(sentiment_df[["created_at", "text", "sentiment"]].head())
-                st.bar_chart(sentiment_df["sentiment"].value_counts())
-            except Exception as e:
-                st.warning(f"Twitter sentiment unavailable: {e}")
-
-        with st.expander("📰 News Sentiment"):
-            try:
-                news_df = pd.read_csv("data/news_articles.csv")
-                finbert_df = analyze_news_sentiment(news_df)
-                st.dataframe(finbert_df[["date", "text", "prediction", "confidence"]].head())
-                st.bar_chart(finbert_df["prediction"].value_counts())
-            except Exception as e:
-                st.warning(f"News sentiment unavailable: {e}")
 
     except Exception as e:
         st.error(f"Data processing error: {e}")
