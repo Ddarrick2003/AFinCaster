@@ -26,6 +26,8 @@ vaderSentiment
 newspaper3k
 beautifulsoup4
 requests
+snscrape
+
 
 
 
