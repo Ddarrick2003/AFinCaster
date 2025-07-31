@@ -5,7 +5,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
-
+from companies import companies
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
@@ -15,6 +15,20 @@ from model.lstm_model import run_lstm_forecast
 from model.garch_model import run_garch_forecast
 from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
+from companies import companies
+
+# ============= NSE COMPANY PICKER =============
+st.subheader("🏢 Select NSE-Listed Company")
+selected_sector = st.selectbox("Choose Sector", list(companies.keys()))
+
+company_options = companies[selected_sector]
+company_names = [company["name"] for company in company_options]
+
+selected_company_name = st.selectbox("Choose Company", company_names)
+selected_company_symbol = next((c["symbol"] for c in company_options if c["name"] == selected_company_name), None)
+
+st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
+
 
 # =========================
 # 🔕 Holiday & Weekend Logic
@@ -152,7 +166,8 @@ with st.expander("📜 Configure Analysis Task", expanded=True):
 # 🧠 Optional Sentiment Modules
 # =========================
 st.subheader("💬 Optional Sentiment Analysis")
-sentiment_symbol = st.text_input("Stock Symbol or Company Name", "Safaricom")
+sentiment_symbol = selected_company_name or "Safaricom"
+
 sentiment_run = st.checkbox("Include Sentiment Analysis", value=True)
 
 # =========================
