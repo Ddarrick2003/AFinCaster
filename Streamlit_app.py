@@ -5,7 +5,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
-from companies import companies
+
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
@@ -15,20 +15,8 @@ from model.lstm_model import run_lstm_forecast
 from model.garch_model import run_garch_forecast
 from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
+
 from companies import companies
-
-# ============= NSE COMPANY PICKER =============
-st.subheader("🏢 Select NSE-Listed Company")
-selected_sector = st.selectbox("Choose Sector", list(companies.keys()))
-
-company_options = companies[selected_sector]
-company_names = [company["name"] for company in company_options]
-
-selected_company_name = st.selectbox("Choose Company", company_names)
-selected_company_symbol = next((c["symbol"] for c in company_options if c["name"] == selected_company_name), None)
-
-st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
-
 
 # =========================
 # 🔕 Holiday & Weekend Logic
@@ -50,13 +38,22 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
 set_page_config()
 inject_custom_css()
 
+# ✅ NSE Company Selector
+st.subheader("🏢 Select NSE-Listed Company")
+selected_sector = st.selectbox("Choose Sector", list(companies.keys()))
+company_options = companies[selected_sector]
+company_names = [company["name"] for company in company_options]
+selected_company_name = st.selectbox("Choose Company", company_names)
+selected_company_symbol = next((c["symbol"] for c in company_options if c["name"] == selected_company_name), None)
+st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
+
 # ✅ Step 1: Inject Custom Modern UI CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
 
     html, body, [class*="css"] {
-        font-family: 'Space Grotesk', sans-serif;
+        font-family: 'Space+Grotesk', sans-serif;
         background-color: #f3f3f3;
         color: #1f1f1f;
     }
@@ -111,6 +108,7 @@ st.markdown("""
         <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
     </div>
 """, unsafe_allow_html=True)
+
 
 # ✅ Optional File Upload Handling
 uploaded_file = st.file_uploader("Upload your stock CSV", type=["csv"])
