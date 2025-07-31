@@ -104,7 +104,7 @@ st.markdown("""
 # Original header block stays here
 st.markdown("""
     <div style='text-align: center; margin-top: -30px;'>
-        <h1 style='color: #2E8B57;'>📊 FinCaster – Intelligent Financial Forecasting</h1>
+        <h1 style='color: #2E8B57;'>📊 MDAnalist – Intelligent Financial Forecasting</h1>
         <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
     </div>
 """, unsafe_allow_html=True)
