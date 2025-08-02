@@ -57,46 +57,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 📁 Upload Financial Report (PDF)
+# 📄 Financial Report Analyzer (PDF Upload)
 # =========================
-st.subheader("📘 Upload Financial Report for Analysis")
-uploaded_pdf = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"])
+from utils.pdf_analyzer import extract_text_from_pdf, extract_sentences_by_category
 
-def extract_text_from_pdf(pdf_file):
-    text = ""
-    with fitz.open(stream=pdf_file.read(), filetype="pdf") as doc:
-        for page in doc:
-            text += page.get_text()
-    return text
+st.markdown("---\n### 🧾 Financial Report Analysis (PDF)")
 
-def extract_key_metrics(text):
-    sections = {
-        "Revenue": [],
-        "Net Income": [],
-        "Cash Flow": [],
-        "EPS": [],
-        "Debt": [],
-        "Highlights": []
-    }
-    for line in text.split("\n"):
-        for key in sections:
-            if key.lower() in line.lower():
-                sections[key].append(line)
-    return sections
+pdf_file = st.file_uploader("Upload PDF Financial Report", type=["pdf"])
 
-if uploaded_pdf:
-    with st.spinner("Extracting and analyzing report..."):
-        raw_text = extract_text_from_pdf(uploaded_pdf)
-        key_data = extract_key_metrics(raw_text)
+if pdf_file:
+    with st.spinner("🔍 Analyzing report..."):
+        raw_text = extract_text_from_pdf(pdf_file)
+        insights = extract_sentences_by_category(raw_text)
 
-    st.subheader("🔍 Key Financial Highlights from Report")
-    for section, items in key_data.items():
-        with st.expander(f"📌 {section}"):
-            for item in items:
-                st.markdown(f"- {item}")
+        for category, sentences in insights.items():
+            if sentences:
+                st.markdown(f"#### 📌 {category}")
+                for sentence in sentences:
+                    st.markdown(f"- {sentence}")
 
-# The rest of the app continues...
-# (your existing forecasting, sentiment analysis, CSV upload, etc. logic follows unchanged)
 
 
 # ✅ Step 1: Inject Custom Modern UI CSS
