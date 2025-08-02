@@ -57,24 +57,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 📄 Financial Report Analyzer (PDF Upload)
+# 📄 Upload & Analyze Financial Report
 # =========================
-from utils.pdf_analyzer import extract_text_from_pdf, extract_sentences_by_category
 
-st.markdown("---\n### 🧾 Financial Report Analysis (PDF)")
-
-pdf_file = st.file_uploader("Upload PDF Financial Report", type=["pdf"])
+st.subheader("📥 Upload Financial Report (PDF)")
+pdf_file = st.file_uploader("Upload Company Financial Report", type=["pdf"])
 
 if pdf_file:
-    with st.spinner("🔍 Analyzing report..."):
-        raw_text = extract_text_from_pdf(pdf_file)
-        insights = extract_sentences_by_category(raw_text)
+    from utils.pdf_analyzer import extract_text_from_pdf, extract_sentences_by_category
 
-        for category, sentences in insights.items():
-            if sentences:
-                st.markdown(f"#### 📌 {category}")
-                for sentence in sentences:
-                    st.markdown(f"- {sentence}")
+    with st.spinner("Analyzing report..."):
+        text = extract_text_from_pdf(pdf_file)
+        summary = extract_sentences_by_category(text)
+
+        st.markdown("### 🧠 Key Investor Highlights")
+        st.dataframe(pd.DataFrame(summary.items(), columns=["Category", "Extracted Insight"]))
+
+        # Download button
+        csv_data = pd.DataFrame(summary.items(), columns=["Category", "Extracted Insight"]).to_csv(index=False).encode('utf-8')
+        st.download_button("📄 Download Summary as CSV", csv_data, file_name="report_summary.csv", mime="text/csv")
+
 
 
 
