@@ -1,6 +1,6 @@
-# 📊 FinCaster: AI-Powered Stock Forecasting App
+# 📊 MDAnalist: AI-Powered Stock Forecasting App
 
-**FinCaster** is a sleek, modern Streamlit web app designed to forecast stock prices using multiple machine learning and statistical models, while integrating sentiment analysis from Twitter (X) and financial news. It also visualizes volatility using GARCH.
+**MDAnalist** is a sleek, modern Streamlit web app designed to forecast stock prices using multiple machine learning and statistical models, while integrating sentiment analysis from Twitter (X) and financial news. It also visualizes volatility using GARCH.
 
 ---
 
