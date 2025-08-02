@@ -1,10 +1,11 @@
 # =========================
-# 📁 FILE: streamlit_app.py (Enhanced with Sentiment Analysis)
+# 📁 FILE: streamlit_app.py (Enhanced with Sentiment Analysis + PDF Report Analysis)
 # =========================
 
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
+import fitz  # PyMuPDF
 
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
@@ -46,6 +47,57 @@ company_names = [company["name"] for company in company_options]
 selected_company_name = st.selectbox("Choose Company", company_names)
 selected_company_symbol = next((c["symbol"] for c in company_options if c["name"] == selected_company_name), None)
 st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
+
+# ✅ Header
+st.markdown("""
+    <div style='text-align: center; margin-top: -30px;'>
+        <h1 style='color: #2E8B57;'>📊 MDAnalist – Intelligent Financial Forecasting</h1>
+        <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
+    </div>
+""", unsafe_allow_html=True)
+
+# =========================
+# 📁 Upload Financial Report (PDF)
+# =========================
+st.subheader("📘 Upload Financial Report for Analysis")
+uploaded_pdf = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"])
+
+def extract_text_from_pdf(pdf_file):
+    text = ""
+    with fitz.open(stream=pdf_file.read(), filetype="pdf") as doc:
+        for page in doc:
+            text += page.get_text()
+    return text
+
+def extract_key_metrics(text):
+    sections = {
+        "Revenue": [],
+        "Net Income": [],
+        "Cash Flow": [],
+        "EPS": [],
+        "Debt": [],
+        "Highlights": []
+    }
+    for line in text.split("\n"):
+        for key in sections:
+            if key.lower() in line.lower():
+                sections[key].append(line)
+    return sections
+
+if uploaded_pdf:
+    with st.spinner("Extracting and analyzing report..."):
+        raw_text = extract_text_from_pdf(uploaded_pdf)
+        key_data = extract_key_metrics(raw_text)
+
+    st.subheader("🔍 Key Financial Highlights from Report")
+    for section, items in key_data.items():
+        with st.expander(f"📌 {section}"):
+            for item in items:
+                st.markdown(f"- {item}")
+
+# The rest of the app continues...
+# (your existing forecasting, sentiment analysis, CSV upload, etc. logic follows unchanged)
+
 
 # ✅ Step 1: Inject Custom Modern UI CSS
 st.markdown("""
