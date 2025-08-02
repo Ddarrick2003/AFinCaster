@@ -28,6 +28,7 @@ beautifulsoup4
 requests
 snscrape
 transformers
+pymupdf
 
 
 
