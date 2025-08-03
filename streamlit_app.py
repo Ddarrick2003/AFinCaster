@@ -1,7 +1,11 @@
 # =========================
 # 📁 FILE: streamlit_app.py (Enhanced with Sentiment Analysis + PDF Report Analysis)
 # =========================
-
+import re
+import pytesseract
+from PIL import Image
+from io import BytesIO
+import tempfile
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
@@ -32,6 +36,51 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
     while next_day.weekday() >= 5 or next_day in holidays:
         next_day += timedelta(days=1)
     return next_day
+def extract_text_from_pdf(pdf_file):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(pdf_file.read())
+        doc = fitz.open(tmp_file.name)
+
+        text = ""
+        for page in doc:
+            page_text = page.get_text()
+            text += page_text
+            if not page_text.strip():
+                pix = page.get_pixmap(dpi=300)
+                img = Image.open(BytesIO(pix.tobytes("png")))
+                text += pytesseract.image_to_string(img)
+        return text
+
+def extract_financial_metrics(text):
+    metrics = {
+        "Revenue": r"(total\s+)?revenue.*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "Net Income": r"(net\s+income|profit\s+after\s+tax).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "EPS": r"(earnings\s+per\s+share|EPS).*?([\d,]+\.\d+|\d+)",
+        "Cash Flow": r"(net\s+cash\s+from\s+operating\s+activities).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "Dividends": r"(total\s+dividends\s+paid).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "Debt": r"(total\s+liabilities|debt).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "Assets": r"(total\s+assets).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "Equity": r"(shareholder\s+equity).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
+        "ROE": r"(return\s+on\s+equity).*?([\d\.]+)\s*%",
+        "Solvency Ratio": r"(solvency\s+ratio|regulatory\s+solvency).*?([\d\.]+)\s*%",
+    }
+
+    extracted = {}
+    for key, pattern in metrics.items():
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            amount = match.group(2).replace(",", "")
+            unit = match.group(3).lower() if match.lastindex >= 3 and match.group(3) else ""
+            factor = 1_000_000_000 if "billion" in unit else 1_000_000 if "million" in unit or "mn" in unit else 1
+            try:
+                value = float(amount) * factor
+                extracted[key] = f"KSh {value:,.0f}"
+            except:
+                extracted[key] = f"KSh {amount}"
+        else:
+            extracted[key] = "N/A"
+    return extracted
+
 
 # =========================
 # 🗄️ Page & Theme Setup
@@ -56,76 +105,72 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+
 # =========================
-# 📊 Financial Report Summary Dashboard (with commentary)
+# 📊 Financial Report Dashboard
 # =========================
+st.markdown("## 📄 Financial Report Summary")
+uploaded_pdf = st.file_uploader("Upload Financial Report (PDF)", type=["pdf"], key="financial_pdf")
 
-st.subheader("📥 Upload Company Financial Report (PDF)")
-pdf_file = st.file_uploader("Upload Financial Report", type=["pdf"], key="pdf_report")
+if uploaded_pdf:
+    with st.spinner("Extracting financial insights..."):
+        text = extract_text_from_pdf(uploaded_pdf)
+        summary = extract_financial_metrics(text)
 
-if pdf_file:
-    from utils.pdf_analyzer import extract_text_from_pdf, extract_financial_summary
-
-    with st.spinner("🔎 Analyzing report..."):
-        text = extract_text_from_pdf(pdf_file)
-        summary = extract_financial_summary(text)
-
-    def generate_comment(metric, value):
-        if "billion" in value.lower() or "million" in value.lower():
-            num = float(''.join(filter(str.isdigit, value)))
-        else:
+    def generate_comment(key, value):
+        try:
+            num = float(value.replace("KSh", "").replace(",", "").strip())
+        except:
             return "—"
 
-        if metric == "Revenue":
-            return "Strong topline performance" if num >= 20 else "Revenue growth potential exists"
-        elif metric == "Net Income":
-            return "Profitable bottom-line" if num >= 5 else "Below target net profit"
-        elif metric == "EPS":
-            return "Solid EPS value" if num > 30 else "EPS could improve"
-        elif metric == "Cash Flow":
-            return "Healthy cash generation" if num >= 3 else "Cash flow under pressure"
-        elif metric == "Dividends":
-            return "Consistent shareholder return" if num >= 1 else "Low dividend payout"
-        elif metric == "Debt":
-            return "Debt level manageable" if num < 130 else "Monitor rising debt levels"
-        elif metric == "Assets":
-            return "Strong asset base" if num > 150 else "Asset base modest"
-        elif metric == "ROE":
-            return "Excellent ROE" if num > 15 else "ROE may need improvement"
-        elif metric == "Solvency":
-            return "Above regulatory requirement" if num > 100 else "Solvency ratio needs attention"
+        if key == "Revenue":
+            return "📈 Stable YoY performance" if num > 10_000_000_000 else "⚠️ Revenue may need growth"
+        elif key == "Net Income":
+            return "💰 Profitable year" if num > 1_000_000_000 else "⚠️ Thin profit margins"
+        elif key == "EPS":
+            return "📊 Strong EPS" if num > 10 else "🟡 Moderate EPS"
+        elif key == "Cash Flow":
+            return "💳 Positive operational cash flow" if num > 0 else "⚠️ Negative cash flow"
+        elif key == "Dividends":
+            return "💵 Steady dividend payout" if num > 500_000_000 else "—"
+        elif key == "Debt":
+            return "📉 Manageable debt level" if num < 200_000_000_000 else "⚠️ High liabilities"
+        elif key == "Assets":
+            return "💼 Strong asset base" if num > 100_000_000_000 else "—"
+        elif key == "ROE":
+            return "🧮 Good return to shareholders" if num > 15 else "⚠️ Low ROE"
+        elif key == "Solvency Ratio":
+            return "🔐 Above required solvency" if num >= 100 else "⚠️ Below required margin"
         return "—"
 
-    # Render Financial Summary Table
-    st.markdown("### 📊 Investor Summary Table")
+    st.markdown("### 🧾 Investor Summary Dashboard")
+    col1, col2, col3 = st.columns(3)
 
-    financial_table = pd.DataFrame([
-        {"Category": "📈 Revenue", "Metric": "Total Revenue", "Amount (KES)": summary.get("Revenue", "N/A"),
-         "Comments": generate_comment("Revenue", summary.get("Revenue", "0"))},
-        {"Category": "💰 Profitability", "Metric": "Net Profit After Tax", "Amount (KES)": summary.get("Net Income", "N/A"),
-         "Comments": generate_comment("Net Income", summary.get("Net Income", "0"))},
-        {"Category": "🧾 EPS", "Metric": "Earnings Per Share (EPS)", "Amount (KES)": summary.get("EPS", "N/A"),
-         "Comments": generate_comment("EPS", summary.get("EPS", "0"))},
-        {"Category": "💳 Cash Flow", "Metric": "Net Cash from Operating Activities", "Amount (KES)": summary.get("Cash Flow", "N/A"),
-         "Comments": generate_comment("Cash Flow", summary.get("Cash Flow", "0"))},
-        {"Category": "💵 Dividends", "Metric": "Total Dividends Paid", "Amount (KES)": summary.get("Dividends", "N/A"),
-         "Comments": generate_comment("Dividends", summary.get("Dividends", "0"))},
-        {"Category": "📉 Debt", "Metric": "Total Liabilities", "Amount (KES)": summary.get("Debt", "N/A"),
-         "Comments": generate_comment("Debt", summary.get("Debt", "0"))},
-        {"Category": "💼 Assets", "Metric": "Total Assets", "Amount (KES)": summary.get("Assets", "N/A"),
-         "Comments": generate_comment("Assets", summary.get("Assets", "0"))},
-        {"Category": "🧮 ROE", "Metric": "Return on Equity (ROE)", "Amount (KES)": summary.get("ROE", "N/A"),
-         "Comments": generate_comment("ROE", summary.get("ROE", "0"))},
-        {"Category": "🔐 Solvency Ratio", "Metric": "Regulatory Solvency Margin", "Amount (KES)": summary.get("Solvency", "N/A"),
-         "Comments": generate_comment("Solvency", summary.get("Solvency", "0"))},
-    ])
+    card_data = [
+        ("📈 Revenue", "Total Revenue", summary["Revenue"], generate_comment("Revenue", summary["Revenue"])),
+        ("💰 Profitability", "Net Profit After Tax", summary["Net Income"], generate_comment("Net Income", summary["Net Income"])),
+        ("🧾 EPS", "Earnings Per Share (EPS)", summary["EPS"], generate_comment("EPS", summary["EPS"])),
+        ("💳 Cash Flow", "Net Cash from Operating Activities", summary["Cash Flow"], generate_comment("Cash Flow", summary["Cash Flow"])),
+        ("💵 Dividends", "Total Dividends Paid", summary["Dividends"], generate_comment("Dividends", summary["Dividends"])),
+        ("📉 Debt", "Total Liabilities", summary["Debt"], generate_comment("Debt", summary["Debt"])),
+        ("💼 Assets", "Total Assets", summary["Assets"], generate_comment("Assets", summary["Assets"])),
+        ("🧮 ROE", "Return on Equity (ROE)", summary["ROE"], generate_comment("ROE", summary["ROE"])),
+        ("🔐 Solvency Ratio", "Regulatory Solvency Margin", summary["Solvency Ratio"], generate_comment("Solvency Ratio", summary["Solvency Ratio"])),
+    ]
 
-    st.dataframe(financial_table, use_container_width=True)
-
-
-
-
-
+    for i in range(0, len(card_data), 3):
+        cols = st.columns(3)
+        for j in range(3):
+            if i + j < len(card_data):
+                emoji, metric, value, comment = card_data[i + j]
+                with cols[j]:
+                    st.markdown(f"""
+                        <div style="background-color:#1f2937; padding:1rem; border-radius:10px; margin-bottom:1rem;">
+                            <div style="font-size:15px; color:#ccc;">{emoji} <b>{metric}</b></div>
+                            <div style="font-size:24px; color:#fff; font-weight:bold;">{value}</div>
+                            <div style="font-size:13px; color:#aaa;">{comment}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
 # ✅ Step 1: Inject Custom Modern UI CSS
 st.markdown("""
