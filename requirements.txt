@@ -30,6 +30,11 @@ snscrape
 transformers
 pymupdf
 PyPDF2
+pytesseract
+pdfplumber
+PyMuPDF
+Pillow
+
 
 
 
