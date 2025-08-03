@@ -75,7 +75,7 @@ set_page_config()
 inject_custom_css()
 
 # ✅ NSE Company Selector
-st.subheader("🏢 Select NSE-Listed Company")
+st.subheader("NSE-Listed Company")
 selected_sector = st.selectbox("Choose Sector", list(companies.keys()))
 company_options = companies[selected_sector]
 company_names = [company["name"] for company in company_options]
@@ -96,12 +96,12 @@ st.markdown("""
 # 📊 Financial Report Summary Dashboard
 # =========================
 
-st.subheader("📥 Upload Financial Report (PDF)")
+st.subheader("Financial Report (PDF)")
 
 uploaded_pdf = st.file_uploader("Upload Company Financial Report", type=["pdf"], key="pdf_uploader")
 
 if uploaded_pdf:
-    st.markdown("### 🔍 Analyzing Financial Report...")
+    st.markdown("### Analyzing Financial Report...")
     with st.spinner("Extracting data and summarizing key metrics..."):
         text = extract_text_from_pdf(uploaded_pdf)
         summary = extract_financial_metrics(text)
@@ -263,7 +263,7 @@ if uploaded_file:
         df['RSI'] = 100 - (100 / (1 + rs))
 
     # ✅ Show Expanded Data Preview
-    st.markdown("### 🗰️ Enriched Data Preview")
+    st.markdown(" Data Preview")
     with st.expander("🔍 Return & RSI (Last 10 Days)", expanded=True):
         st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10), use_container_width=True)
 
@@ -281,15 +281,15 @@ with st.expander("📜 Configure Analysis Task", expanded=True):
 # =========================
 # 🧠 Optional Sentiment Modules
 # =========================
-st.subheader("💬 Optional Sentiment Analysis")
+st.subheader("Sentiment Analysis")
 sentiment_symbol = selected_company_name or "Safaricom"
 
-sentiment_run = st.checkbox("Include Sentiment Analysis", value=True)
+sentiment_run = st.checkbox("Include Sentiments", value=False)
 
 # =========================
 # 📄 Upload CSV Data
 # =========================
-st.subheader("📄 Upload Historical Price Data")
+st.subheader("Historical Price Data")
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 export_data = []
