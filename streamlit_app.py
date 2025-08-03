@@ -57,25 +57,62 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 📄 Upload & Analyze Financial Report
+# 📊 Financial Report Summary Dashboard
 # =========================
 
 st.subheader("📥 Upload Financial Report (PDF)")
-pdf_file = st.file_uploader("Upload Company Financial Report", type=["pdf"])
 
-if pdf_file:
-    from utils.pdf_analyzer import extract_text_from_pdf, extract_sentences_by_category
+pdf_report = st.file_uploader("Upload Company Financial Report", type=["pdf"], key="pdf_uploader")
 
-    with st.spinner("Analyzing report..."):
-        text = extract_text_from_pdf(pdf_file)
-        summary = extract_sentences_by_category(text)
+if pdf_report:
+    from utils.pdf_analyzer import extract_text_from_pdf, extract_financial_summary
 
-        st.markdown("### 🧠 Key Investor Highlights")
-        st.dataframe(pd.DataFrame(summary.items(), columns=["Category", "Extracted Insight"]))
+    with st.spinner("Analyzing financial report..."):
+        text = extract_text_from_pdf(pdf_report)
+        summary = extract_financial_summary(text)  # Should return a dict with relevant values
 
-        # Download button
-        csv_data = pd.DataFrame(summary.items(), columns=["Category", "Extracted Insight"]).to_csv(index=False).encode('utf-8')
-        st.download_button("📄 Download Summary as CSV", csv_data, file_name="report_summary.csv", mime="text/csv")
+        st.markdown("### 🧾 Summary of Key Financial Metrics")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f"""
+                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
+                    <h4 style="color:#aaa;">💰 Total Revenue</h4>
+                    <h2 style="color:#fff;">{summary.get("Revenue", "N/A")}</h2>
+                </div>
+                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
+                    <h4 style="color:#aaa;">🏢 Total Assets</h4>
+                    <h2 style="color:#fff;">{summary.get("Assets", "N/A")}</h2>
+                </div>
+                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px;">
+                    <h4 style="color:#aaa;">📈 Operating Cash Flow</h4>
+                    <h2 style="color:#fff;">{summary.get("Cash Flow", "N/A")}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
+                    <h4 style="color:#aaa;">📉 Net Income</h4>
+                    <h2 style="color:#fff;">{summary.get("Net Income", "N/A")}</h2>
+                </div>
+                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
+                    <h4 style="color:#aaa;">📊 Shareholder Equity</h4>
+                    <h2 style="color:#fff;">{summary.get("Equity", "N/A")}</h2>
+                </div>
+                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px;">
+                    <h4 style="color:#aaa;">📌 Earnings Per Share (EPS)</h4>
+                    <h2 style="color:#fff;">{summary.get("EPS", "N/A")}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("""
+            <div style="margin-top:2rem; text-align:center;">
+                <a href="#" target="_blank" style="color:white; background-color:#007aff; padding:0.8rem 1.5rem; border-radius:8px; text-decoration:none; font-weight:bold;">
+                    🔗 View Full Financial Report
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
 
 
 
