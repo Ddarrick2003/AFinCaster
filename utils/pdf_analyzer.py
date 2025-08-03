@@ -3,28 +3,29 @@
 import fitz  # PyMuPDF
 import re
 
-def extract_text_from_pdf(pdf_file):
-    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
-
-def extract_sentences_by_category(text):
+def extract_financial_summary(text: str) -> dict:
     categories = {
-        "Revenue": [],
-        "Cash Flow": [],
-        "EPS": [],
-        "Debt": [],
-        "Highlights": []
+        "Revenue": ["total revenue", "revenues"],
+        "Net Income": ["net income", "profit after tax"],
+        "Assets": ["total assets", "consolidated assets"],
+        "Equity": ["shareholder equity", "equity attributable"],
+        "Cash Flow": ["operating cash flow", "net cash from operations"],
+        "EPS": ["earnings per share", "basic eps"]
     }
 
-    # Normalize line breaks
-    sentences = re.split(r'(?<=[.!?])\s+', text)
+    summary = {}
+    for key, keywords in categories.items():
+        for kw in keywords:
+            if kw.lower() in text.lower():
+                # Extract value using basic context search
+                idx = text.lower().find(kw.lower())
+                snippet = text[idx:idx+100]
+                match = re.search(r"[\$€£]?\s?[\d.,]+[MB]?", snippet)
+                if match:
+                    summary[key] = match.group()
+                    break
+        if key not in summary:
+            summary[key] = "N/A"
 
-    for sentence in sentences:
-        for category in categories:
-            if category.lower() in sentence.lower():
-                categories[category].append(sentence.strip())
-    
-    return categories
+    return summary
+
