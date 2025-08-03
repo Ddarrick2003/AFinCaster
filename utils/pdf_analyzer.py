@@ -1,93 +1,59 @@
-# utils/pdf_analyzer.py
-import fitz  # PyMuPDF
 import re
+import io
+import fitz  # PyMuPDF
+import pytesseract
+from PIL import Image
+import pdfplumber
 import pandas as pd
 
-
-def extract_text_from_pdf(pdf_path):
+# Fallback OCR-based text extraction for scanned PDFs
+def extract_text_with_ocr(pdf_path):
     text = ""
     with fitz.open(pdf_path) as doc:
         for page in doc:
-            text += page.get_text()
+            pix = page.get_pixmap(dpi=300)
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            page_text = pytesseract.image_to_string(img)
+            text += page_text + "\n"
     return text
 
+# Extract text using PDFPlumber for digital PDFs
+def extract_text_from_pdf(pdf_path):
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            text = "\n".join(page.extract_text() or '' for page in pdf.pages)
+        return text if text.strip() else extract_text_with_ocr(pdf_path)
+    except:
+        return extract_text_with_ocr(pdf_path)
 
-def clean_text(text):
-    return re.sub(r'\s+', ' ', text.replace('\n', ' ')).strip()
+# Helper to find numeric amounts in KSh
+def find_amounts(text, keywords):
+    lines = text.splitlines()
+    results = []
+    for line in lines:
+        if any(keyword.lower() in line.lower() for keyword in keywords):
+            match = re.findall(r"KSh[\s]*[\d,]+(?:\.\d+)?", line)
+            if match:
+                results.append((line.strip(), match[0]))
+    return results
 
-
-# Utility function to find the first occurrence of a number (KES or %)
-def find_value(pattern, text, default=None):
-    match = re.search(pattern, text, re.IGNORECASE)
-    return match.group(1) if match else default
-
-
+# Extract investor-centric financial summary
 def extract_financial_summary(text):
-    text = clean_text(text)
-    summary = []
+    summary = {}
 
-    summary.append({
-        "Category": "📈 Revenue",
-        "Metric": "Total Revenue",
-        "Amount (KES)": find_value(r"total revenue[^\d]+([\d,.]+\s*(?:billion|million)?)", text),
-        "Comments": "Overall income from all operations"
-    })
+    summary["Revenue"] = find_amounts(text, ["revenue", "turnover"])
+    summary["Net Income"] = find_amounts(text, ["net income", "profit after tax", "earnings"])
+    summary["EPS"] = find_amounts(text, ["earnings per share", "eps"])
+    summary["Total Assets"] = find_amounts(text, ["total assets"])
+    summary["Total Liabilities"] = find_amounts(text, ["total liabilities"])
+    summary["Cash Flow"] = find_amounts(text, ["cash flows from operating", "net cash"])
+    summary["Debt"] = find_amounts(text, ["debt", "borrowings", "loans"])
+    summary["Highlights"] = find_amounts(text, ["highlights", "milestones", "summary"])
 
-    summary.append({
-        "Category": "💰 Profitability",
-        "Metric": "Net Profit After Tax",
-        "Amount (KES)": find_value(r"net profit[^\d]+([\d,.]+\s*(?:billion|million)?)", text),
-        "Comments": "Final earnings after tax deduction"
-    })
-
-    summary.append({
-        "Category": "🧾 EPS",
-        "Metric": "Earnings Per Share (EPS)",
-        "Amount (KES)": find_value(r"earnings per share[^\d]+([\d,.]+)", text),
-        "Comments": "Profit per outstanding share"
-    })
-
-    summary.append({
-        "Category": "💳 Cash Flow",
-        "Metric": "Net Cash from Operating Activities",
-        "Amount (KES)": find_value(r"cash from operating activities[^\d]+([\d,.]+\s*(?:billion|million)?)", text),
-        "Comments": "Cash generated from core business"
-    })
-
-    summary.append({
-        "Category": "💵 Dividends",
-        "Metric": "Total Dividends Paid",
-        "Amount (KES)": find_value(r"dividends paid[^\d]+([\d,.]+\s*(?:billion|million)?)", text),
-        "Comments": "Total payout to shareholders"
-    })
-
-    summary.append({
-        "Category": "📉 Debt",
-        "Metric": "Total Liabilities",
-        "Amount (KES)": find_value(r"total liabilities[^\d]+([\d,.]+\s*(?:billion|million)?)", text),
-        "Comments": "Obligations owed by the company"
-    })
-
-    summary.append({
-        "Category": "💼 Assets",
-        "Metric": "Total Assets",
-        "Amount (KES)": find_value(r"total assets[^\d]+([\d,.]+\s*(?:billion|million)?)", text),
-        "Comments": "All owned resources"
-    })
-
-    summary.append({
-        "Category": "🧮 ROE",
-        "Metric": "Return on Equity (ROE)",
-        "Amount (KES)": find_value(r"return on equity[^\d]+([\d,.]+%)", text),
-        "Comments": "Net income as % of shareholder equity"
-    })
-
-    summary.append({
-        "Category": "🔐 Solvency Ratio",
-        "Metric": "Regulatory Solvency Margin",
-        "Amount (KES)": find_value(r"solvency margin[^\d]+([\d,.]+%)", text),
-        "Comments": "Financial cushion over liabilities"
-    })
-
-    df = pd.DataFrame(summary)
-    return df
+    # Convert summary to a tabular DataFrame
+    rows = []
+    for key, values in summary.items():
+        if values:
+            for sentence, amount in values:
+                rows.append({"Category": key, "Amount": amount, "Context": sentence})
+    return pd.DataFrame(rows)
