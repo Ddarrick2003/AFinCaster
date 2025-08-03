@@ -1,7 +1,12 @@
-# utils/pdf_analyzer.py
-
-import fitz  # PyMuPDF
 import re
+from PyPDF2 import PdfReader
+
+def extract_text_from_pdf(file) -> str:
+    reader = PdfReader(file)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() or ""
+    return text
 
 def extract_financial_summary(text: str) -> dict:
     categories = {
@@ -17,7 +22,6 @@ def extract_financial_summary(text: str) -> dict:
     for key, keywords in categories.items():
         for kw in keywords:
             if kw.lower() in text.lower():
-                # Extract value using basic context search
                 idx = text.lower().find(kw.lower())
                 snippet = text[idx:idx+100]
                 match = re.search(r"[\$€£]?\s?[\d.,]+[MB]?", snippet)
@@ -26,6 +30,4 @@ def extract_financial_summary(text: str) -> dict:
                     break
         if key not in summary:
             summary[key] = "N/A"
-
     return summary
-
