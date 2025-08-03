@@ -93,70 +93,77 @@ st.markdown("""
 
 
 # =========================
-# 📊 Financial Report Dashboard
+# 📊 Financial Report Summary Dashboard
 # =========================
-st.markdown("## 📄 Financial Report Summary")
-uploaded_pdf = st.file_uploader("Upload Financial Report (PDF)", type=["pdf"], key="financial_pdf")
+
+st.subheader("📥 Upload Financial Report (PDF)")
+
+uploaded_pdf = st.file_uploader("Upload Company Financial Report", type=["pdf"], key="pdf_uploader")
 
 if uploaded_pdf:
-    with st.spinner("Extracting financial insights..."):
+    st.markdown("### 🔍 Analyzing Financial Report...")
+    with st.spinner("Extracting data and summarizing key metrics..."):
         text = extract_text_from_pdf(uploaded_pdf)
         summary = extract_financial_metrics(text)
 
-    def generate_comment(key, value):
-        try:
+        def generate_comment(metric, value):
+            if value == "N/A":
+                return "Not disclosed"
             num = float(value.replace("KSh", "").replace(",", "").strip())
-        except:
-            return "—"
+            if metric == "Revenue":
+                return "Strong performance" if num > 10_000_000_000 else "Stable YoY performance"
+            elif metric == "Net Income":
+                return "Healthy profit" if num > 1_000_000_000 else "Modest returns"
+            elif metric == "EPS":
+                return "Strong EPS growth" if num > 20 else "Average EPS"
+            elif metric == "Cash Flow":
+                return "Positive and increasing" if num > 1_000_000_000 else "Neutral cash flow"
+            elif metric == "Dividends":
+                return "Consistent dividends" if num > 500_000_000 else "Minimal payout"
+            elif metric == "Debt":
+                return "Manageable" if num < 50_000_000_000 else "Rising liabilities"
+            elif metric == "Assets":
+                return "Expanding asset base" if num > 100_000_000_000 else "Flat growth"
+            elif metric == "Equity":
+                return "Strong capital structure" if num > 10_000_000_000 else "Moderate equity"
+            elif metric == "ROE":
+                return "High return to shareholders" if num > 15 else "Below market average"
+            elif metric == "Solvency Ratio":
+                return "Above regulatory minimum" if num > 100 else "Needs improvement"
+            return ""
 
-        if key == "Revenue":
-            return "📈 Stable YoY performance" if num > 10_000_000_000 else "⚠️ Revenue may need growth"
-        elif key == "Net Income":
-            return "💰 Profitable year" if num > 1_000_000_000 else "⚠️ Thin profit margins"
-        elif key == "EPS":
-            return "📊 Strong EPS" if num > 10 else "🟡 Moderate EPS"
-        elif key == "Cash Flow":
-            return "💳 Positive operational cash flow" if num > 0 else "⚠️ Negative cash flow"
-        elif key == "Dividends":
-            return "💵 Steady dividend payout" if num > 500_000_000 else "—"
-        elif key == "Debt":
-            return "📉 Manageable debt level" if num < 200_000_000_000 else "⚠️ High liabilities"
-        elif key == "Assets":
-            return "💼 Strong asset base" if num > 100_000_000_000 else "—"
-        elif key == "ROE":
-            return "🧮 Good return to shareholders" if num > 15 else "⚠️ Low ROE"
-        elif key == "Solvency Ratio":
-            return "🔐 Above required solvency" if num >= 100 else "⚠️ Below required margin"
-        return "—"
+        metric_icons = {
+            "Revenue": "📈",
+            "Net Income": "💰",
+            "EPS": "🧾",
+            "Cash Flow": "💳",
+            "Dividends": "💵",
+            "Debt": "📉",
+            "Assets": "💼",
+            "Equity": "📊",
+            "ROE": "🧮",
+            "Solvency Ratio": "🔐"
+        }
 
-    st.markdown("### 🧾 Investor Summary Dashboard")
-    col1, col2, col3 = st.columns(3)
+        st.markdown("### 🧾 Key Financial Dashboard")
 
-    card_data = [
-        ("📈 Revenue", "Total Revenue", summary["Revenue"], generate_comment("Revenue", summary["Revenue"])),
-        ("💰 Profitability", "Net Profit After Tax", summary["Net Income"], generate_comment("Net Income", summary["Net Income"])),
-        ("🧾 EPS", "Earnings Per Share (EPS)", summary["EPS"], generate_comment("EPS", summary["EPS"])),
-        ("💳 Cash Flow", "Net Cash from Operating Activities", summary["Cash Flow"], generate_comment("Cash Flow", summary["Cash Flow"])),
-        ("💵 Dividends", "Total Dividends Paid", summary["Dividends"], generate_comment("Dividends", summary["Dividends"])),
-        ("📉 Debt", "Total Liabilities", summary["Debt"], generate_comment("Debt", summary["Debt"])),
-        ("💼 Assets", "Total Assets", summary["Assets"], generate_comment("Assets", summary["Assets"])),
-        ("🧮 ROE", "Return on Equity (ROE)", summary["ROE"], generate_comment("ROE", summary["ROE"])),
-        ("🔐 Solvency Ratio", "Regulatory Solvency Margin", summary["Solvency Ratio"], generate_comment("Solvency Ratio", summary["Solvency Ratio"])),
-    ]
+        cols = st.columns(2)
+        keys = list(summary.keys())
 
-    for i in range(0, len(card_data), 3):
-        cols = st.columns(3)
-        for j in range(3):
-            if i + j < len(card_data):
-                emoji, metric, value, comment = card_data[i + j]
-                with cols[j]:
-                    st.markdown(f"""
-                        <div style="background-color:#1f2937; padding:1rem; border-radius:10px; margin-bottom:1rem;">
-                            <div style="font-size:15px; color:#ccc;">{emoji} <b>{metric}</b></div>
-                            <div style="font-size:24px; color:#fff; font-weight:bold;">{value}</div>
-                            <div style="font-size:13px; color:#aaa;">{comment}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
+        for i, metric in enumerate(keys):
+            with cols[i % 2]:
+                value = summary[metric]
+                comment = generate_comment(metric, value)
+                icon = metric_icons.get(metric, "")
+                st.markdown(f"""
+                    <div style="background-color:#ffffff; padding:1.3rem; border-radius:14px;
+                                box-shadow:0 4px 10px rgba(0,0,0,0.06); margin-bottom:1rem;">
+                        <div style="font-size:16px; color:#555;">{icon} <strong>{metric}</strong></div>
+                        <div style="font-size:22px; font-weight:700; color:#111; margin:0.2rem 0;">{value}</div>
+                        <div style="font-size:13px; color:#888;">{comment}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
 
 # ✅ Step 1: Inject Custom Modern UI CSS
 st.markdown("""
