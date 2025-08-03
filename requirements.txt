@@ -29,6 +29,8 @@ requests
 snscrape
 transformers
 pymupdf
+PyPDF2
+
 
 
 
