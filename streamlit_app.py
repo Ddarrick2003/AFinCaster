@@ -69,7 +69,7 @@ if pdf_report:
 
     with st.spinner("Analyzing financial report..."):
         text = extract_text_from_pdf(pdf_report)
-        summary = extract_financial_summary(text)  # Should return a dict with relevant values
+        summary = extract_financial_summary(text)
 
         st.markdown("### 🧾 Summary of Key Financial Metrics")
 
@@ -106,13 +106,6 @@ if pdf_report:
                 </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("""
-            <div style="margin-top:2rem; text-align:center;">
-                <a href="#" target="_blank" style="color:white; background-color:#007aff; padding:0.8rem 1.5rem; border-radius:8px; text-decoration:none; font-weight:bold;">
-                    🔗 View Full Financial Report
-                </a>
-            </div>
-        """, unsafe_allow_html=True)
 
 
 
