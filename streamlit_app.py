@@ -32,6 +32,12 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
     while next_day.weekday() >= 5 or next_day in holidays:
         next_day += timedelta(days=1)
     return next_day
+    st.markdown("""
+    <div style='text-align: center; margin-top: -30px;'>
+        <h1 style='color: #2E8B57;'>📊 MDAnalist – Intelligent Financial Forecasting</h1>
+        <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
+    </div>
+""", unsafe_allow_html=True)
 
 # =========================
 # 🗄️ Page & Theme Setup
@@ -51,8 +57,8 @@ st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
 # ✅ Header
 st.markdown("""
     <div style='text-align: center; margin-top: -30px;'>
-        <h1 style='color: #2E8B57;'>📊 MDAnalist – Intelligent Financial Forecasting</h1>
-        <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
+        <h1 style='color: #2E8B57;'>📊 MDAnalist – Report Analysis</h1>
+        <p style='font-size: 18px;'>Configure, Upload & Visualize Financial Report .</p>
     </div>
 """, unsafe_allow_html=True)
 
