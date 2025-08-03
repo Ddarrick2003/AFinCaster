@@ -33,15 +33,6 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
         next_day += timedelta(days=1)
     return next_day
 
-
-    
-st.markdown("""
-    <div style='text-align: center; margin-top: -30px;'>
-        <h1 style='color: #2E8B57;'>📊 MDAnalist – Intelligent Financial Forecasting</h1>
-        <p style='font-size: 18px;'>Configure, Upload & Visualize multi-model forecasts with confidence intervals.</p>
-    </div>
-""", unsafe_allow_html=True)
-
 # =========================
 # 🗄️ Page & Theme Setup
 # =========================
