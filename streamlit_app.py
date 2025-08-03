@@ -57,54 +57,71 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 📊 Financial Report Summary Dashboard
+# 📊 Financial Report Summary Dashboard (with commentary)
 # =========================
 
-st.subheader("📥 Upload Financial Report (PDF)")
+st.subheader("📥 Upload Company Financial Report (PDF)")
+pdf_file = st.file_uploader("Upload Financial Report", type=["pdf"], key="pdf_report")
 
-pdf_report = st.file_uploader("Upload Company Financial Report", type=["pdf"], key="pdf_uploader")
-
-if pdf_report:
+if pdf_file:
     from utils.pdf_analyzer import extract_text_from_pdf, extract_financial_summary
 
-    with st.spinner("Analyzing financial report..."):
-        text = extract_text_from_pdf(pdf_report)
+    with st.spinner("🔎 Analyzing report..."):
+        text = extract_text_from_pdf(pdf_file)
         summary = extract_financial_summary(text)
 
-        st.markdown("### 🧾 Summary of Key Financial Metrics")
+    def generate_comment(metric, value):
+        if "billion" in value.lower() or "million" in value.lower():
+            num = float(''.join(filter(str.isdigit, value)))
+        else:
+            return "—"
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
-                    <h4 style="color:#aaa;">💰 Total Revenue</h4>
-                    <h2 style="color:#fff;">{summary.get("Revenue", "N/A")}</h2>
-                </div>
-                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
-                    <h4 style="color:#aaa;">🏢 Total Assets</h4>
-                    <h2 style="color:#fff;">{summary.get("Assets", "N/A")}</h2>
-                </div>
-                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px;">
-                    <h4 style="color:#aaa;">📈 Operating Cash Flow</h4>
-                    <h2 style="color:#fff;">{summary.get("Cash Flow", "N/A")}</h2>
-                </div>
-            """, unsafe_allow_html=True)
+        if metric == "Revenue":
+            return "Strong topline performance" if num >= 20 else "Revenue growth potential exists"
+        elif metric == "Net Income":
+            return "Profitable bottom-line" if num >= 5 else "Below target net profit"
+        elif metric == "EPS":
+            return "Solid EPS value" if num > 30 else "EPS could improve"
+        elif metric == "Cash Flow":
+            return "Healthy cash generation" if num >= 3 else "Cash flow under pressure"
+        elif metric == "Dividends":
+            return "Consistent shareholder return" if num >= 1 else "Low dividend payout"
+        elif metric == "Debt":
+            return "Debt level manageable" if num < 130 else "Monitor rising debt levels"
+        elif metric == "Assets":
+            return "Strong asset base" if num > 150 else "Asset base modest"
+        elif metric == "ROE":
+            return "Excellent ROE" if num > 15 else "ROE may need improvement"
+        elif metric == "Solvency":
+            return "Above regulatory requirement" if num > 100 else "Solvency ratio needs attention"
+        return "—"
 
-        with col2:
-            st.markdown(f"""
-                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
-                    <h4 style="color:#aaa;">📉 Net Income</h4>
-                    <h2 style="color:#fff;">{summary.get("Net Income", "N/A")}</h2>
-                </div>
-                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px; margin-bottom:1rem;">
-                    <h4 style="color:#aaa;">📊 Shareholder Equity</h4>
-                    <h2 style="color:#fff;">{summary.get("Equity", "N/A")}</h2>
-                </div>
-                <div style="background-color:#1c1c1e; padding:1.2rem; border-radius:12px;">
-                    <h4 style="color:#aaa;">📌 Earnings Per Share (EPS)</h4>
-                    <h2 style="color:#fff;">{summary.get("EPS", "N/A")}</h2>
-                </div>
-            """, unsafe_allow_html=True)
+    # Render Financial Summary Table
+    st.markdown("### 📊 Investor Summary Table")
+
+    financial_table = pd.DataFrame([
+        {"Category": "📈 Revenue", "Metric": "Total Revenue", "Amount (KES)": summary.get("Revenue", "N/A"),
+         "Comments": generate_comment("Revenue", summary.get("Revenue", "0"))},
+        {"Category": "💰 Profitability", "Metric": "Net Profit After Tax", "Amount (KES)": summary.get("Net Income", "N/A"),
+         "Comments": generate_comment("Net Income", summary.get("Net Income", "0"))},
+        {"Category": "🧾 EPS", "Metric": "Earnings Per Share (EPS)", "Amount (KES)": summary.get("EPS", "N/A"),
+         "Comments": generate_comment("EPS", summary.get("EPS", "0"))},
+        {"Category": "💳 Cash Flow", "Metric": "Net Cash from Operating Activities", "Amount (KES)": summary.get("Cash Flow", "N/A"),
+         "Comments": generate_comment("Cash Flow", summary.get("Cash Flow", "0"))},
+        {"Category": "💵 Dividends", "Metric": "Total Dividends Paid", "Amount (KES)": summary.get("Dividends", "N/A"),
+         "Comments": generate_comment("Dividends", summary.get("Dividends", "0"))},
+        {"Category": "📉 Debt", "Metric": "Total Liabilities", "Amount (KES)": summary.get("Debt", "N/A"),
+         "Comments": generate_comment("Debt", summary.get("Debt", "0"))},
+        {"Category": "💼 Assets", "Metric": "Total Assets", "Amount (KES)": summary.get("Assets", "N/A"),
+         "Comments": generate_comment("Assets", summary.get("Assets", "0"))},
+        {"Category": "🧮 ROE", "Metric": "Return on Equity (ROE)", "Amount (KES)": summary.get("ROE", "N/A"),
+         "Comments": generate_comment("ROE", summary.get("ROE", "0"))},
+        {"Category": "🔐 Solvency Ratio", "Metric": "Regulatory Solvency Margin", "Amount (KES)": summary.get("Solvency", "N/A"),
+         "Comments": generate_comment("Solvency", summary.get("Solvency", "0"))},
+    ])
+
+    st.dataframe(financial_table, use_container_width=True)
+
 
 
 
