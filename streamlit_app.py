@@ -36,20 +36,6 @@ def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
     while next_day.weekday() >= 5 or next_day in holidays:
         next_day += timedelta(days=1)
     return next_day
-def extract_text_from_pdf(pdf_file):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-        tmp_file.write(pdf_file.read())
-        doc = fitz.open(tmp_file.name)
-
-        text = ""
-        for page in doc:
-            page_text = page.get_text()
-            text += page_text
-            if not page_text.strip():
-                pix = page.get_pixmap(dpi=300)
-                img = Image.open(BytesIO(pix.tobytes("png")))
-                text += pytesseract.image_to_string(img)
-        return text
 
 def extract_financial_metrics(text):
     metrics = {
