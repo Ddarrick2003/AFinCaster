@@ -15,6 +15,7 @@ from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
 from utils.sentiment import fetch_twitter_sentiment, fetch_news_sentiment
+from utils.pdf_extractor import extract_text_from_pdf
 
 from model.lstm_model import run_lstm_forecast
 from model.garch_model import run_garch_forecast
@@ -52,17 +53,14 @@ def extract_text_from_pdf(pdf_file):
 # =========================
 # 📥 PDF Upload and Processing
 # =========================
-uploaded_pdf = st.file_uploader("📤 Upload Financial Report (PDF)", type=["pdf"])
+uploaded_file = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"])
 
-if uploaded_pdf:
-    text = extract_text_from_pdf(uploaded_pdf)
+if uploaded_file is not None:
+    text = extract_text_from_pdf(uploaded_file)
+    if text:
+        st.subheader("📑 Extracted Text")
+        st.text_area("Raw Extracted Content", text, height=300)
 
-    if not text:
-        st.error("❌ No text could be extracted from the PDF. The file might be empty, encrypted, or OCR dependencies are missing.")
-    else:
-        # Pass the extracted text to your metrics extraction function
-        summary = extract_financial_metrics(text)
-        st.write(summary)
 
 
 # =========================
