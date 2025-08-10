@@ -23,31 +23,96 @@ from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
 from companies import companies
+import streamlit as st
+import pytesseract
+from pdf2image import convert_from_bytes
+from PyPDF2 import PdfReader
+import re
+import pandas as pd
 
-# =========================
-# 📄 PDF Text Extraction (with OCR for scanned PDFs)
-# =========================
-def extract_text_from_pdf(pdf_file):
-    """Extract text from a PDF using PyMuPDF and OCR for scanned pages."""
+# ----------- PDF Extraction Function -----------
+def extract_text_from_pdf(file):
     text = ""
     try:
-        pdf_bytes = pdf_file.read()
-        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-            for page_num, page in enumerate(doc):
-                # First try normal text extraction
-                page_text = page.get_text().strip()
-                if page_text:
-                    text += page_text + "\n"
-                else:
-                    # Fallback to OCR if no text found
-                    pix = page.get_pixmap()
-                    img = Image.open(BytesIO(pix.tobytes()))
-                    ocr_text = pytesseract.image_to_string(img)
-                    text += ocr_text + "\n"
+        # Try extracting text directly
+        reader = PdfReader(file)
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        
+        # If no text found, try OCR
+        if not text.strip():
+            file.seek(0)  # Reset file pointer
+            images = convert_from_bytes(file.read())
+            for image in images:
+                try:
+                    text += pytesseract.image_to_string(image)
+                except pytesseract.pytesseract.TesseractNotFoundError:
+                    st.error("⚠️ Tesseract OCR is not installed. Please install it to process scanned PDFs.")
+                    return ""
+    except pytesseract.pytesseract.TesseractNotFoundError:
+        st.error("⚠️ Tesseract OCR is not installed. Please install it to process scanned PDFs.")
+        return ""
     except Exception as e:
-        st.error(f"Error extracting text: {e}")
-        return None
-    return text.strip() if text.strip() else None
+        st.error(f"⚠️ PDF extraction error: {e}")
+        return ""
+
+    return text
+
+
+# ----------- Financial Data Extraction Function -----------
+def extract_financial_metrics(text):
+    metrics_patterns = {
+        "Revenue (KES)": r"(?:Revenue|Sales|Turnover)[^\d]*(\d[\d,\.]*)",
+        "Net Income (KES)": r"(?:Net Income|Profit after tax|Net profit)[^\d]*(\d[\d,\.]*)",
+        "EPS (KES)": r"(?:EPS|Earnings per share)[^\d]*(\d[\d,\.]*)",
+        "Debt (KES)": r"(?:Debt|Borrowings|Loans)[^\d]*(\d[\d,\.]*)",
+        "Cash Flow (KES)": r"(?:Cash Flow from operations|Operating cash flow)[^\d]*(\d[\d,\.]*)",
+        "Assets (KES)": r"(?:Total Assets)[^\d]*(\d[\d,\.]*)",
+        "Equity (KES)": r"(?:Total Equity|Shareholder’s equity)[^\d]*(\d[\d,\.]*)"
+    }
+    
+    extracted_data = {}
+    for metric, pattern in metrics_patterns.items():
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            extracted_data[metric] = match.group(1).replace(",", "")
+        else:
+            extracted_data[metric] = "N/A"
+    
+    return extracted_data
+
+
+# ----------- Streamlit App Section -----------
+st.title("📊 MDAnalyst - Financial Report Analyzer")
+uploaded_file = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"])
+
+if uploaded_file is not None:
+    text = extract_text_from_pdf(uploaded_file)
+    if text:
+        # Extract metrics
+        metrics = extract_financial_metrics(text)
+
+        # Display in dashboard format
+        st.subheader("💡 Investor Summary Dashboard")
+        df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
+        st.dataframe(df)
+
+        # Investor-friendly commentary
+        st.subheader("📌 Quick Insights")
+        commentary = []
+        if metrics["Revenue (KES)"] != "N/A":
+            commentary.append(f"Revenue recorded at KES {metrics['Revenue (KES)']} indicates business scale.")
+        if metrics["Net Income (KES)"] != "N/A":
+            commentary.append(f"Net income of KES {metrics['Net Income (KES)']} shows profitability.")
+        if metrics["EPS (KES)"] != "N/A":
+            commentary.append(f"EPS of {metrics['EPS (KES)']} reflects earnings per shareholder.")
+        if metrics["Debt (KES)"] != "N/A":
+            commentary.append(f"Debt position at KES {metrics['Debt (KES)']} could impact solvency.")
+        
+        for line in commentary:
+            st.write("✅ " + line)
+
+
 
 
 # =========================
