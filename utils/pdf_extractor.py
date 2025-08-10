@@ -13,7 +13,7 @@ def extract_text_from_pdf(file):
         
         # If no text found, try OCR
         if not text.strip():
-            file.seek(0)  # reset pointer for OCR
+            file.seek(0)  # Reset file pointer
             images = convert_from_bytes(file.read())
             for image in images:
                 try:
