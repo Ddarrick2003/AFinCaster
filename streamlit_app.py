@@ -118,13 +118,37 @@ if uploaded_file is not None:
 # =========================
 # 📥 PDF Upload and Processing
 # =========================
-uploaded_file = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"])
+st.header("📄 Upload Financial Report")
+
+uploaded_file = st.file_uploader(
+    "📄 Upload Financial Report (PDF)",
+    type=["pdf"],
+    key="financial_report_main"
+)
 
 if uploaded_file is not None:
-    text = extract_text_from_pdf(uploaded_file)
-    if text:
-        st.subheader("📑 Extracted Text")
-        st.text_area("Raw Extracted Content", text, height=300)
+    with st.spinner("Extracting and analyzing financial data..."):
+        try:
+            text = extract_text_from_pdf(uploaded_file)
+            st.success("✅ Text extracted successfully!")
+        except Exception as e:
+            st.error(f"❌ Error extracting text: {e}")
+
+# If you have another uploader for comparison or additional reports
+uploaded_file_2 = st.file_uploader(
+    "📄 Upload Another Financial Report for Comparison (PDF)",
+    type=["pdf"],
+    key="financial_report_secondary"
+)
+
+if uploaded_file_2 is not None:
+    with st.spinner("Extracting and analyzing second financial report..."):
+        try:
+            text2 = extract_text_from_pdf(uploaded_file_2)
+            st.success("✅ Second report extracted successfully!")
+        except Exception as e:
+            st.error(f"❌ Error extracting text: {e}")
+
 
 
 
