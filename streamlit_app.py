@@ -45,7 +45,25 @@ def extract_text_from_pdf(pdf_file):
                     text += ocr_text + "\n"
     except Exception as e:
         st.error(f"Error extracting text: {e}")
-    return text
+        return None
+    return text.strip() if text.strip() else None
+
+
+# =========================
+# 📥 PDF Upload and Processing
+# =========================
+uploaded_pdf = st.file_uploader("📤 Upload Financial Report (PDF)", type=["pdf"])
+
+if uploaded_pdf:
+    text = extract_text_from_pdf(uploaded_pdf)
+
+    if not text:
+        st.error("❌ No text could be extracted from the PDF. The file might be empty, encrypted, or OCR dependencies are missing.")
+    else:
+        # Pass the extracted text to your metrics extraction function
+        summary = extract_financial_metrics(text)
+        st.write(summary)
+
 
 # =========================
 # 🔕 Holiday & Weekend Logic
