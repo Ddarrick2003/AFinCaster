@@ -24,48 +24,36 @@ from model.transformer_models import run_informer, run_autoformer
 from companies import companies
 
 # =========================
+# 📄 PDF Text Extraction (with OCR for scanned PDFs)
+# =========================
+def extract_text_from_pdf(pdf_file):
+    """Extract text from a PDF using PyMuPDF and OCR for scanned pages."""
+    text = ""
+    try:
+        pdf_bytes = pdf_file.read()
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            for page_num, page in enumerate(doc):
+                # First try normal text extraction
+                page_text = page.get_text().strip()
+                if page_text:
+                    text += page_text + "\n"
+                else:
+                    # Fallback to OCR if no text found
+                    pix = page.get_pixmap()
+                    img = Image.open(BytesIO(pix.tobytes()))
+                    ocr_text = pytesseract.image_to_string(img)
+                    text += ocr_text + "\n"
+    except Exception as e:
+        st.error(f"Error extracting text: {e}")
+    return text
+
+# =========================
 # 🔕 Holiday & Weekend Logic
 # =========================
-
 CUSTOM_HOLIDAYS = pd.to_datetime([
     "2025-01-01", "2025-04-18", "2025-12-25",
 ])
 
-def get_next_trading_day(last_date, holidays=CUSTOM_HOLIDAYS):
-    next_day = last_date + timedelta(days=1)
-    while next_day.weekday() >= 5 or next_day in holidays:
-        next_day += timedelta(days=1)
-    return next_day
-
-def extract_financial_metrics(text):
-    metrics = {
-        "Revenue": r"(total\s+)?revenue.*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "Net Income": r"(net\s+income|profit\s+after\s+tax).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "EPS": r"(earnings\s+per\s+share|EPS).*?([\d,]+\.\d+|\d+)",
-        "Cash Flow": r"(net\s+cash\s+from\s+operating\s+activities).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "Dividends": r"(total\s+dividends\s+paid).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "Debt": r"(total\s+liabilities|debt).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "Assets": r"(total\s+assets).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "Equity": r"(shareholder\s+equity).*?([\d,]+\.\d+|\d+)\s*(billion|million|mn)?",
-        "ROE": r"(return\s+on\s+equity).*?([\d\.]+)\s*%",
-        "Solvency Ratio": r"(solvency\s+ratio|regulatory\s+solvency).*?([\d\.]+)\s*%",
-    }
-
-    extracted = {}
-    for key, pattern in metrics.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            amount = match.group(2).replace(",", "")
-            unit = match.group(3).lower() if match.lastindex >= 3 and match.group(3) else ""
-            factor = 1_000_000_000 if "billion" in unit else 1_000_000 if "million" in unit or "mn" in unit else 1
-            try:
-                value = float(amount) * factor
-                extracted[key] = f"KSh {value:,.0f}"
-            except:
-                extracted[key] = f"KSh {amount}"
-        else:
-            extracted[key] = "N/A"
-    return extracted
 
 
 # =========================
