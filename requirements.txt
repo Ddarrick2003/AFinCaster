@@ -34,6 +34,10 @@ pytesseract
 pdfplumber
 PyMuPDF
 Pillow
+pdf2image
+pytesseract
+PyPDF2
+
 
 
 
