@@ -10,6 +10,8 @@ import streamlit as st
 import pandas as pd
 from datetime import timedelta
 import fitz  # PyMuPDF
+from pdf2image import convert_from_bytes
+from PyPDF2 import PdfReader
 
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
@@ -23,12 +25,11 @@ from model.xgboost_model import run_xgboost_with_shap
 from model.transformer_models import run_informer, run_autoformer
 
 from companies import companies
-import streamlit as st
-import pytesseract
-from pdf2image import convert_from_bytes
-from PyPDF2 import PdfReader
-import re
-import pandas as pd
+
+
+set_page_config()  # <-- Call right here, at top
+
+st.title("📊 MDAnalyst - Financial Report Analyzer")
 
 # ----------- PDF Extraction Function -----------
 def extract_text_from_pdf(file):
