@@ -172,10 +172,20 @@ if uploaded_file_2 is not None:
 st.subheader("📈 Upload Historical Stock Data (CSV)")
 
 uploaded_file_csv = st.file_uploader("Upload your stock CSV", type=["csv"], key="stock_csv_uploader")
-
+# =========================
+# 🔕 Holiday & Weekend Logic
+# =========================
 CUSTOM_HOLIDAYS = pd.to_datetime([
     "2025-01-01", "2025-04-18", "2025-12-25",
 ])
+
+def get_next_trading_day(date):
+    next_day = date + pd.Timedelta(days=1)
+    while next_day.weekday() >= 5 or next_day in CUSTOM_HOLIDAYS:
+        next_day += pd.Timedelta(days=1)
+    return next_day
+
+
 
 if uploaded_file_csv:
     df = pd.read_csv(uploaded_file_csv)
