@@ -84,18 +84,18 @@ def extract_financial_metrics(text):
 
 # ----------- Streamlit App Section -----------
 st.title("📊 MDAnalyst - Financial Report Analyzer")
-uploaded_file = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"])
+uploaded_file_1 = st.file_uploader("📄 Upload Financial Report (PDF)", type=["pdf"], key="financial_report_1")
 
-if uploaded_file is not None:
-    text = extract_text_from_pdf(uploaded_file)
+if uploaded_file_1 is not None:
+    text = extract_text_from_pdf(uploaded_file_1)
     if text:
         # Extract metrics
         metrics = extract_financial_metrics(text)
 
         # Display in dashboard format
         st.subheader("💡 Investor Summary Dashboard")
-        df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
-        st.dataframe(df)
+        df_metrics = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
+        st.dataframe(df_metrics)
 
         # Investor-friendly commentary
         st.subheader("📌 Quick Insights")
@@ -120,16 +120,16 @@ if uploaded_file is not None:
 # =========================
 st.header("📄 Upload Financial Report")
 
-uploaded_file = st.file_uploader(
+uploaded_file_main = st.file_uploader(
     "📄 Upload Financial Report (PDF)",
     type=["pdf"],
     key="financial_report_main"
 )
 
-if uploaded_file is not None:
+if uploaded_file_main is not None:
     with st.spinner("Extracting and analyzing financial data..."):
         try:
-            text = extract_text_from_pdf(uploaded_file)
+            text_main = extract_text_from_pdf(uploaded_file_main)
             st.success("✅ Text extracted successfully!")
         except Exception as e:
             st.error(f"❌ Error extracting text: {e}")
@@ -169,10 +169,10 @@ inject_custom_css()
 
 # ✅ NSE Company Selector
 st.subheader("NSE-Listed Company")
-selected_sector = st.selectbox("Choose Sector", list(companies.keys()))
+selected_sector = st.selectbox("Choose Sector", list(companies.keys()), key="sector_select")
 company_options = companies[selected_sector]
 company_names = [company["name"] for company in company_options]
-selected_company_name = st.selectbox("Choose Company", company_names)
+selected_company_name = st.selectbox("Choose Company", company_names, key="company_select")
 selected_company_symbol = next((c["symbol"] for c in company_options if c["name"] == selected_company_name), None)
 st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
 
@@ -191,7 +191,7 @@ st.markdown("""
 
 st.subheader("Financial Report (PDF)")
 
-uploaded_pdf = st.file_uploader("Upload Company Financial Report", type=["pdf"], key="pdf_uploader")
+uploaded_pdf = st.file_uploader("Upload Company Financial Report", type=["pdf"], key="pdf_uploader_1")
 
 if uploaded_pdf:
     st.markdown("### Analyzing Financial Report...")
@@ -322,10 +322,10 @@ st.markdown("""
 
 
 # ✅ Optional File Upload Handling
-uploaded_file = st.file_uploader("Upload your stock CSV", type=["csv"])
+uploaded_file_csv = st.file_uploader("Upload your stock CSV", type=["csv"], key="stock_csv_uploader")
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+if uploaded_file_csv:
+    df = pd.read_csv(uploaded_file_csv)
     df.columns = df.columns.str.strip()
     df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
     df = df.sort_values(by='Date')
@@ -364,12 +364,12 @@ if uploaded_file:
 # 📒️ Task Configuration
 # =========================
 with st.expander("📜 Configure Analysis Task", expanded=True):
-    task_name = st.text_input("Task Name", "My Forecast Task")
-    selected_model = st.selectbox("Select Forecasting Model", ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"])
-    forecast_days = st.slider("Forecast Horizon (days)", min_value=5, max_value=30, value=10)
-    currency = st.radio("Currency", ["KSh", "USD"], horizontal=True)
-    run_all = st.checkbox("Run All Models", value=True)
-    auto_clean = st.checkbox("Auto Clean Data (drop NaNs)", value=False)
+    task_name = st.text_input("Task Name", "My Forecast Task", key="task_name")
+    selected_model = st.selectbox("Select Forecasting Model", ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"], key="forecast_model")
+    forecast_days = st.slider("Forecast Horizon (days)", min_value=5, max_value=30, value=10, key="forecast_days")
+    currency = st.radio("Currency", ["KSh", "USD"], horizontal=True, key="currency_select")
+    run_all = st.checkbox("Run All Models", value=True, key="run_all_models")
+    auto_clean = st.checkbox("Auto Clean Data (drop NaNs)", value=False, key="auto_clean_data")
 
 # =========================
 # 🧠 Optional Sentiment Modules
@@ -377,19 +377,19 @@ with st.expander("📜 Configure Analysis Task", expanded=True):
 st.subheader("Sentiment Analysis")
 sentiment_symbol = selected_company_name or "Safaricom"
 
-sentiment_run = st.checkbox("Include Sentiments", value=False)
+sentiment_run = st.checkbox("Include Sentiments", value=False, key="include_sentiments")
 
 # =========================
 # 📄 Upload CSV Data
 # =========================
 st.subheader("Historical Price Data")
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+uploaded_file_csv_2 = st.file_uploader("Upload CSV file", type=["csv"], key="csv_uploader_2")
 
 export_data = []
 
-if uploaded_file:
+if uploaded_file_csv_2:
     try:
-        df = pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file_csv_2)
         df.columns = df.columns.str.strip()
         df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
         df = df.sort_values(by='Date')
@@ -437,6 +437,7 @@ if uploaded_file:
                             </div>
                         """, unsafe_allow_html=True)
                         plot_volatility_chart(forecast_df, volatility_df)
+
 
                         # Raw data
                         with st.expander("🔍 Raw Volatility Data"):
