@@ -37,36 +37,37 @@ Pillow
 pdf2image
 pytesseract
 PyPDF2
-# Core Web App
-streamlit>=1.34.0
-pandas>=2.2.2
-numpy>=1.26.4
-matplotlib>=3.9.0
-altair>=5.3.0
-scipy>=1.13.0
-scikit-learn>=1.5.0
+# Core App
+streamlit==1.36.0
+pandas==2.2.2
+numpy==1.26.4
+matplotlib==3.9.0
+altair==5.3.0
+scipy==1.13.1
+scikit-learn==1.5.1
 
 # Forecasting Models
-xgboost>=2.0.3
-torch>=2.2.0
-transformers>=4.41.0
-arch>=6.3.0  # GARCH model
+xgboost==2.1.1
+torch==2.3.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+transformers==4.44.2
+arch==6.3.0
 
 # Sentiment Analysis
-tweepy>=4.14.0
-vaderSentiment>=3.3.2
-nltk>=3.8.1
+tweepy==4.14.0
+vaderSentiment==3.3.2
+nltk==3.8.1
 
 # PDF & OCR Processing
-PyMuPDF>=1.23.3
-pdfplumber>=0.10.3
-pytesseract>=0.3.10
-opencv-python>=4.9.0.80
-Pillow>=10.3.0
+PyMuPDF==1.23.3
+pdfplumber==0.10.3
+pytesseract==0.3.10
+opencv-python-headless==4.9.0.80
+Pillow==10.3.0
 
-# Utilities & Styling
-requests>=2.32.0
-python-dateutil>=2.9.0
+# Utilities
+requests==2.32.3
+python-dateutil==2.9.0
+
 
 
 
