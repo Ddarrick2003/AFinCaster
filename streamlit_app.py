@@ -543,4 +543,42 @@ try:
     st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
 
 except Exception as e:
-    st.error(f"Data processing error: {e}")
+    st.error(f"Data processing error in blended forecast: {e}")
+
+# =========================
+# 📊 Sentiment Analysis Section
+# =========================
+try:
+    sentiment_run = st.checkbox("Run Sentiment Analysis")
+    export_data = []
+
+    if sentiment_run:
+        sentiment_symbol = st.text_input("Enter Stock Symbol for Sentiment", "AAPL")
+        st.markdown("---\n### 🗾 Sentiment Analysis Summary")
+        
+        twitter_df = fetch_twitter_sentiment(sentiment_symbol)
+        news_df = fetch_news_sentiment(sentiment_symbol)
+
+        st.markdown("#### 🔦 Twitter Sentiment")
+        st.dataframe(twitter_df)
+        st.markdown("#### 📰 News Sentiment")
+        st.dataframe(news_df)
+
+        export_data.append({"Source": "Twitter", "Data": twitter_df.to_dict()})
+        export_data.append({"Source": "News", "Data": news_df.to_dict()})
+
+    # 📄 Export Forecast Summary
+    if export_data:
+        st.markdown("### 📄 Export Summary")
+        export_df = pd.DataFrame(export_data)
+        st.dataframe(export_df)
+        csv = export_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "📅 Download Forecast Summary as CSV",
+            csv,
+            file_name="forecast_summary.csv",
+            mime="text/csv"
+        )
+
+except Exception as e:
+    st.error(f"Data processing error in sentiment analysis: {e}")
