@@ -175,11 +175,6 @@ if uploaded_file_2 is not None:
                 if val != "N/A":
                     st.write(f"✅ {metric}: {val}")
 
-
-# === Stock CSV Upload and Technical Indicators (Grouped) ===
-st.subheader("📈 Upload Historical Stock Data (CSV)")
-
-uploaded_file_csv = st.file_uploader("Upload your stock CSV", type=["csv"], key="stock_csv_uploader")
 # =========================
 # 🔕 Holiday & Weekend Logic
 # =========================
@@ -296,6 +291,25 @@ if uploaded_file_csv_2:
         df = df[df['Date'].dt.weekday < 5]
         df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
 
+        # =========================
+        # 📊 Technical Indicators
+        # =========================
+        if 'Close' in df.columns:
+            df['Daily Return'] = df['Close'].pct_change()
+
+            delta = df['Close'].diff()
+            gain = delta.where(delta > 0, 0)
+            loss = -delta.where(delta < 0, 0)
+
+            avg_gain = gain.rolling(window=14).mean()
+            avg_loss = loss.rolling(window=14).mean()
+
+            rs = avg_gain / avg_loss
+            df['RSI'] = 100 - (100 / (1 + rs))
+
+            with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
+                st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
+
         # Preview cleaned dataset
         st.markdown(f"### 🧼 Preview of `{task_name}` Dataset")
         st.dataframe(df.tail(), use_container_width=True)
@@ -388,6 +402,7 @@ if uploaded_file_csv_2:
 
     except Exception as e:
         st.error(f"Data processing error in forecast block: {e}")
+
 
 # ========================
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
