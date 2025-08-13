@@ -470,7 +470,6 @@ try:
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
     def train_blender(historical_df):
-        # Skip training if there's no valid data
         if historical_df.empty or len(historical_df.dropna()) < 1:
             st.warning("⚠️ Not enough historical data to train blending model. Using equal weights.")
             return None, np.array([0.2, 0.2, 0.2, 0.2, 0.2])
@@ -505,7 +504,7 @@ try:
         ])
         historical_data.to_csv(HIST_FILE, index=False)
 
-    # Safely get forecast values from export_data
+    # Safely get forecast values
     model_forecast_map = {row.get("Model"): row.get("Forecasted Price") for row in export_data if "Model" in row}
     lstm_forecast_value = model_forecast_map.get("LSTM", np.nan)
     garch_forecast_value = model_forecast_map.get("GARCH", np.nan)
@@ -528,7 +527,6 @@ try:
     today_actual_price = get_actual_price_for_symbol(selected_company_symbol)
     today_str = datetime.date.today().isoformat()
 
-    # Append today's predictions if not present
     if today_str not in historical_data['Date'].values:
         new_row = pd.DataFrame([{
             'Date': today_str,
@@ -557,35 +555,49 @@ try:
         blender = st.session_state.get("blender", None)
         weights = st.session_state.get("weights", np.array([0.2, 0.2, 0.2, 0.2, 0.2]))
 
-    # Final blended price with fallback
+    # Final blended price
     if blender is None or any(np.isnan(current_preds)):
-        final_price = np.nanmean(current_preds)  # average ignoring NaNs
+        final_price = np.nanmean(current_preds)
     else:
         final_price = get_final_prediction(current_preds, blender)
 
-    # Display results in styled container
+    # =========================
+    # Display in styled "smart table" card
+    # =========================
     st.markdown(f"""
     <div style="
-        background:#fff;
-        padding: 1.75rem 2rem;
-        border-radius: 24px;
-        box-shadow: 0 8px 22px rgba(0,0,0,0.05);
-        margin-bottom: 2rem;
-        border: 1px solid #e2e2e2;
+        background-color:#ffffff;
+        padding:2rem;
+        border-radius:24px;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.08);
+        font-family: 'Space Grotesk', sans-serif;
+        max-width:700px;
+        margin:auto;
     ">
         <h3 style="color:#2E8B57; font-weight:700; margin-bottom:1rem;">📊 Final Blended Price Forecast</h3>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:20px; font-weight:700; color:#121212;">
-                {final_price:.2f} KES
-            </div>
-            <div style="font-size:14px; color:#555;">
-                Predictions → LSTM={current_preds[0]}, GARCH={current_preds[1]}, XGB={current_preds[2]}, Informer={current_preds[3]}, Autoformer={current_preds[4]}
-            </div>
+        <div style="
+            font-size:28px;
+            font-weight:700;
+            color:#121212;
+            margin-bottom:1rem;
+        ">{final_price:.2f} KES</div>
+        <div style="
+            font-size:14px;
+            color:#555;
+            word-break:break-word;
+            background-color:#f9f9f9;
+            padding:1rem;
+            border-radius:12px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        ">
+            <strong>Predictions:</strong> LSTM={current_preds[0]}, GARCH={current_preds[1]}, XGB={current_preds[2]}, Informer={current_preds[3]}, Autoformer={current_preds[4]}
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Contribution chart
+    # =========================
+    # Contribution Bar Chart
+    # =========================
     if not np.isnan(final_price):
         model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
         contributions = np.array(weights) * final_price
@@ -625,11 +637,11 @@ try:
         """, unsafe_allow_html=True)
 
         st.line_chart(line_df)
-
         st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
 
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
+
 
 
 
