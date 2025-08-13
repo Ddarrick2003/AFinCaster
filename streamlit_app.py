@@ -562,8 +562,28 @@ try:
         final_price = get_final_prediction(current_preds, blender)
 
     # =========================
-    # Display in styled "smart table" card
+    # Styled Multi-Column Smart Table with Color Coding
     # =========================
+    model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
+    cell_colors = ['#4CAF50' if p >= final_price else '#F44336' for p in current_preds]  # Green if above, Red if below
+
+    cells_html = ""
+    for name, val, color in zip(model_names, current_preds, cell_colors):
+        cells_html += f"""
+        <div style="
+            flex:1;
+            background:{color}20;
+            padding:0.75rem;
+            border-radius:12px;
+            text-align:center;
+            font-weight:600;
+            color:{color};
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        ">
+            <strong>{name}</strong><br>{val:.4f}
+        </div>
+        """
+
     st.markdown(f"""
     <div style="
         background-color:#ffffff;
@@ -571,7 +591,7 @@ try:
         border-radius:24px;
         box-shadow: 0 8px 22px rgba(0,0,0,0.08);
         font-family: 'Space Grotesk', sans-serif;
-        max-width:700px;
+        max-width:750px;
         margin:auto;
     ">
         <h3 style="color:#2E8B57; font-weight:700; margin-bottom:1rem;">📊 Final Blended Price Forecast</h3>
@@ -579,19 +599,9 @@ try:
             font-size:28px;
             font-weight:700;
             color:#121212;
-            margin-bottom:1rem;
+            margin-bottom:1.5rem;
         ">{final_price:.2f} KES</div>
-        <div style="
-            font-size:14px;
-            color:#555;
-            word-break:break-word;
-            background-color:#f9f9f9;
-            padding:1rem;
-            border-radius:12px;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
-        ">
-            <strong>Predictions:</strong> LSTM={current_preds[0]}, GARCH={current_preds[1]}, XGB={current_preds[2]}, Informer={current_preds[3]}, Autoformer={current_preds[4]}
-        </div>
+        <div style="display:flex; gap:0.5rem;">{cells_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -599,7 +609,6 @@ try:
     # Contribution Bar Chart
     # =========================
     if not np.isnan(final_price):
-        model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
         contributions = np.array(weights) * final_price
         contrib_df = pd.DataFrame({
             'Model': model_names,
@@ -641,10 +650,6 @@ try:
 
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
-
-
-
-
 
 # =========================
 # 📊 Sentiment Analysis Section
