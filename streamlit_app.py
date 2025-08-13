@@ -110,17 +110,22 @@ st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
 
 
 
-# === File Upload ===
-st.subheader("📄 Upload Financial Report(s)")
+# === PDF Upload & Analysis Dashboard ===
+st.subheader("📄 Financial Report Analysis Dashboard")
 
 uploaded_file_main = st.file_uploader(
-    "Upload Financial Report (PDF)", type=["pdf"], key="financial_report_main"
-)
-uploaded_file_2 = st.file_uploader(
-    "Upload Another Financial Report for Comparison (Optional)", type=["pdf"], key="financial_report_secondary"
+    "Upload Financial Report",
+    type=["pdf"],
+    key="financial_report_main"
 )
 
-# === PDF Extraction ===
+uploaded_file_2 = st.file_uploader(
+    "Upload Another Financial Report for Comparison (Optional)",
+    type=["pdf"],
+    key="financial_report_secondary"
+)
+
+# --- Functions from previous code ---
 def safe_extract_text(file):
     try:
         return extract_text(file)
@@ -133,7 +138,6 @@ def safe_extract_text(file):
             st.error("Unable to extract text from PDF.")
             return ""
 
-# === Metric Extraction ===
 def extract_financial_metrics(text):
     metrics_patterns = {
         "Revenue (KES)": r"(?:Revenue|Sales|Turnover)[^\d]*(\d[\d,\.]*)",
@@ -144,33 +148,22 @@ def extract_financial_metrics(text):
         "Assets (KES)": r"(?:Total Assets)[^\d]*(\d[\d,\.]*)",
         "Equity (KES)": r"(?:Total Equity|Shareholder’s equity)[^\d]*(\d[\d,\.]*)"
     }
-    
     extracted_data = {}
     for metric, pattern in metrics_patterns.items():
         match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            extracted_data[metric] = match.group(1).replace(",", "")
-        else:
-            extracted_data[metric] = "N/A"
+        extracted_data[metric] = match.group(1).replace(",", "") if match else "N/A"
     return extracted_data
 
-# === Denomination Formatter ===
 def format_with_scale(value_str):
     try:
         val = float(value_str)
-        if val >= 1e9:
-            return f"{val/1e9:.2f} B"
-        elif val >= 1e6:
-            return f"{val/1e6:.2f} M"
-        elif val >= 1e3:
-            return f"{val/1e3:.2f} K"
-        else:
-            return f"{val:.2f}"
-    except:
-        return value_str
+        if val >= 1e9: return f"{val/1e9:.2f} B"
+        elif val >= 1e6: return f"{val/1e6:.2f} M"
+        elif val >= 1e3: return f"{val/1e3:.2f} K"
+        else: return f"{val:.2f}"
+    except: return value_str
 
-# === Display Metrics Cards ===
-def display_metrics(metrics, title="Report Analysis"):
+def display_metrics_cards(metrics, title="Report Analysis"):
     st.markdown(f"### {title}")
     cells_html = ""
     for metric, val in metrics.items():
@@ -180,7 +173,7 @@ def display_metrics(metrics, title="Report Analysis"):
         <div style="
             flex:1;
             background:{color}20;
-            padding:0.75rem;
+            padding:1rem;
             border-radius:12px;
             text-align:center;
             font-weight:600;
@@ -198,12 +191,11 @@ def display_metrics(metrics, title="Report Analysis"):
         background:#fff;
         padding:1.5rem;
         border-radius:16px;
-        box-shadow:0 6px 18px rgba(0,0,0,0.06);
+        box-shadow:0 6px 18px rgba(0,0,0,0.08);
         margin-bottom:1rem;
     ">{cells_html}</div>
     """, unsafe_allow_html=True)
 
-# === Generate Commentary with Colors ===
 def generate_commentary(metrics1, metrics2=None):
     commentary = []
     if metrics2:
@@ -218,12 +210,11 @@ def generate_commentary(metrics1, metrics2=None):
                 elif change < 0:
                     commentary.append(f"<span style='color:red;'>⚠️ {key} decreased by {abs(pct_change):.2f}% from Report 1 to Report 2.</span>")
                 else:
-                    commentary.append(f"<span style='color:gray;'>ℹ️ {key} remained stable between the reports.</span>")
+                    commentary.append(f"<span style='color:gray;'>ℹ️ {key} remained stable.</span>")
             except:
                 continue
     return commentary
 
-# === Summarize Report Text ===
 def summarize_report(text, top_n=5):
     sentences = re.split(r'(?<=[.!?]) +', text)
     if len(sentences) <= top_n:
@@ -236,29 +227,29 @@ def summarize_report(text, top_n=5):
     summary = [s for s,_ in scored_sentences[:top_n]]
     return summary
 
-# === Extract & Display ===
+# --- Process PDFs ---
 metrics1, metrics2 = None, None
 text1, text2 = "", ""
-if uploaded_file_main is not None:
+
+if uploaded_file_main:
     text1 = safe_extract_text(uploaded_file_main)
     if text1:
         metrics1 = extract_financial_metrics(text1)
-        display_metrics(metrics1, "Report 1 Analysis")
+        display_metrics_cards(metrics1, "Report 1 Analysis")
 
-if uploaded_file_2 is not None:
+if uploaded_file_2:
     text2 = safe_extract_text(uploaded_file_2)
     if text2:
         metrics2 = extract_financial_metrics(text2)
-        display_metrics(metrics2, "Report 2 Analysis")
+        display_metrics_cards(metrics2, "Report 2 Analysis")
 
-# === Commentary & Comparison Table ===
+# --- Comparison Table & Commentary ---
 if metrics1 and metrics2:
     st.markdown("### 📊 Year-over-Year Comparison")
     comp_data = []
     for key in metrics1.keys():
         val1, val2 = metrics1[key], metrics2[key]
         display_val1, display_val2 = format_with_scale(val1), format_with_scale(val2)
-        color_val = ""
         try:
             val1f, val2f = float(val1), float(val2)
             change = val2f - val1f
@@ -267,11 +258,11 @@ if metrics1 and metrics2:
             color_val = "black"
         comp_data.append((key, display_val1, display_val2, color_val))
     
-    # Display as colored dataframe
+    # Table in dashboard style
     comp_html = "<table style='width:100%; border-collapse:collapse;'>"
     comp_html += "<tr><th>Metric</th><th>Report 1</th><th>Report 2</th></tr>"
     for row in comp_data:
-        comp_html += f"<tr style='color:{row[3]}'><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>"
+        comp_html += f"<tr style='color:{row[3]}; font-weight:600;'><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>"
     comp_html += "</table>"
     st.markdown(comp_html, unsafe_allow_html=True)
 
@@ -280,7 +271,7 @@ if metrics1 and metrics2:
     for line in commentary:
         st.markdown(line, unsafe_allow_html=True)
 
-# === Summarized Report Text ===
+# --- Summarized Report Highlights ---
 if text1:
     st.markdown("### 📄 Key Highlights from Report 1")
     summary1 = summarize_report(text1)
@@ -292,6 +283,7 @@ if text2:
     summary2 = summarize_report(text2)
     for s in summary2:
         st.write(f"- {s}")
+
 
 
 
