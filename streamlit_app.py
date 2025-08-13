@@ -189,29 +189,6 @@ def get_next_trading_day(date):
     return next_day
 
 
-
-if uploaded_file_csv:
-    df = pd.read_csv(uploaded_file_csv)
-    df.columns = df.columns.str.strip()
-    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
-    df = df.sort_values(by='Date')
-
-    # Clean numeric columns
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            try:
-                df[col] = pd.to_numeric(df[col].str.replace(',', '').str.replace('-', ''), errors='coerce')
-            except:
-                pass
-
-    # Remove weekends & holidays
-    df = df[df['Date'].dt.weekday < 5]  # exclude weekends
-    df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
-
-    with st.expander("🔍 Preview Data: Date, Close", expanded=True):
-        st.dataframe(df[['Date', 'Close']].dropna().tail(10))
-
-
 # === Forecast Task Configuration (Grouped) ===
 st.subheader("⚙️ Configure Forecast Task")
 
