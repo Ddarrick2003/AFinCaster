@@ -16,6 +16,7 @@ from scipy.interpolate import interp1d
 import datetime
 import altair as alt
 import io
+import plotly.graph_objects as go
 
 from pdfminer.high_level import extract_text
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -419,6 +420,7 @@ if uploaded_file_csv_2 and 'df' in locals():
             models_to_run = [selected_model] if not run_all else ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"]
 
             for model in models_to_run:
+                # --- Model Card Header ---
                 st.markdown(f"""
                 <div style="
                     background: #ffffff;
@@ -433,16 +435,24 @@ if uploaded_file_csv_2 and 'df' in locals():
                 """, unsafe_allow_html=True)
 
                 with st.container():
+                    forecast_df, mae, extra_fig = None, None, None
+
+                    # --- LSTM Forecast ---
                     if model == "LSTM":
                         forecast_df, mae = run_lstm_forecast(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
+                        fig_forecast = plot_forecast_chart(forecast_df, model, return_fig=True)
+                        st.plotly_chart(fig_forecast, use_container_width=True)
                         display_mae_chart(mae)
 
+                    # --- GARCH Forecast ---
                     elif model == "GARCH":
                         forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
-                        st.markdown("### 📉 Forecasted Price")
-                        plot_forecast_chart(forecast_df, model)
+                        st.markdown("### 📉 Forecasted Prices")
+                        fig_forecast = plot_forecast_chart(forecast_df, model, return_fig=True)
+                        st.plotly_chart(fig_forecast, use_container_width=True)
+                        display_mae_chart(volatility_df['Volatility'].mean())
 
+                        # Volatility Card
                         st.markdown("""
                             <div style="
                                 background-color:#ffffff; 
@@ -453,54 +463,43 @@ if uploaded_file_csv_2 and 'df' in locals():
                             ">
                                 <h4 style="margin-bottom:0.5rem; color:#121212;">📊 Forecasted Volatility</h4>
                                 <p style="font-size:14px; color:#666;">
-                                    This chart shows the predicted volatility (standard deviation of returns) for each forecasted day using GARCH.
+                                    Predicted standard deviation of returns for each forecasted day.
                                 </p>
                             </div>
                         """, unsafe_allow_html=True)
-                        plot_volatility_chart(forecast_df, volatility_df)
+                        fig_vol = plot_volatility_chart(forecast_df, volatility_df, return_fig=True)
+                        st.plotly_chart(fig_vol, use_container_width=True)
 
-                        with st.expander("🔍 Raw Volatility Data"):
-                            st.dataframe(volatility_df, use_container_width=True)
-
-                        avg_vol = volatility_df['Volatility'].mean()
-                        max_vol = volatility_df['Volatility'].max()
-                        min_vol = volatility_df['Volatility'].min()
-
-                        col1, col2, col3 = st.columns(3)
-                        for col, title, val in zip(
-                            [col1, col2, col3],
-                            ["Average Volatility", "Max Volatility", "Min Volatility"],
-                            [avg_vol, max_vol, min_vol]
-                        ):
-                            col.markdown(f"""
-                            <div style="
-                                background-color:#fff; 
-                                padding:1.5rem; 
-                                border-radius:20px; 
-                                text-align:center;
-                                box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-                                margin-bottom: 1rem;
-                            ">
-                                <div style='font-size:14px; color:#888;'>{title}</div>
-                                <div style='font-size:22px; font-weight:700;'>{val:.4f}</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
+                    # --- XGBoost Forecast ---
                     elif model == "XGBoost":
-                        forecast_df, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
-                        display_mae_chart(mae)
-                        st.pyplot(shap_plot)
+                        forecast_df, mae, fig_shap, fig_pred = run_xgboost_with_shap(df, forecast_days, currency)
 
+                        # Forecast Chart
+                        fig_forecast = plot_forecast_chart(forecast_df, model, return_fig=True)
+                        st.plotly_chart(fig_forecast, use_container_width=True)
+                        display_mae_chart(mae)
+
+                        # SHAP Feature Importance
+                        st.markdown("### 🔑 SHAP Feature Importance")
+                        st.plotly_chart(fig_shap, use_container_width=True)
+
+                        # Predicted vs Actual
+                        st.markdown("### 📊 Predicted vs Actual Prices")
+                        st.plotly_chart(fig_pred, use_container_width=True)
+
+                    # --- Informer Forecast ---
                     elif model == "Informer":
                         forecast_df = run_informer(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
+                        fig_forecast = plot_forecast_chart(forecast_df, model, return_fig=True)
+                        st.plotly_chart(fig_forecast, use_container_width=True)
 
+                    # --- Autoformer Forecast ---
                     elif model == "Autoformer":
                         forecast_df = run_autoformer(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
+                        fig_forecast = plot_forecast_chart(forecast_df, model, return_fig=True)
+                        st.plotly_chart(fig_forecast, use_container_width=True)
 
-                    # Calculate forecast signal
+                    # --- Forecast Signal Cards ---
                     last_date = df['Date'].max()
                     next_trading_day = get_next_trading_day(last_date)
                     next_price = forecast_df.iloc[0]['Forecast']
@@ -517,44 +516,26 @@ if uploaded_file_csv_2 and 'df' in locals():
                     signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
 
                     col1, col2, col3 = st.columns(3)
-                    col1.markdown(f"""
-                    <div style="
-                        background-color:#fff; 
-                        padding:1.5rem; 
-                        border-radius:20px; 
-                        text-align:center;
-                        box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-                    ">
-                        <div style='font-size:14px; color:#888;'>Next Trading Day</div>
-                        <div style='font-size:22px; font-weight:700;'>{next_trading_day.strftime('%b %d, %Y')}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    col2.markdown(f"""
-                    <div style="
-                        background-color:#fff; 
-                        padding:1.5rem; 
-                        border-radius:20px; 
-                        text-align:center;
-                        box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-                    ">
-                        <div style='font-size:14px; color:#888;'>Forecasted Price</div>
-                        <div style='font-size:22px; font-weight:700;'>{currency} {next_price:,.2f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    col3.markdown(f"""
-                    <div style="
-                        background-color:#fff; 
-                        padding:1.5rem; 
-                        border-radius:20px; 
-                        text-align:center;
-                        box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-                    ">
-                        <div style='font-size:14px; color:#888;'>Forecast Signal</div>
-                        <div style='font-size:20px; font-weight:700; color:{signal_color};'>{signal}</div>
-                        <div style='font-size:13px; color:#666;'>{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    for col, title, val in zip(
+                        [col1, col2, col3],
+                        ["Next Trading Day", "Forecasted Price", "Forecast Signal"],
+                        [next_trading_day.strftime('%b %d, %Y'), f"{currency} {next_price:,.2f}", f"{signal} ({direction} {abs(change):,.2f}, {percent:.2f}%)"]
+                    ):
+                        color = signal_color if "Signal" in title else "#121212"
+                        col.markdown(f"""
+                        <div style="
+                            background-color:#fff; 
+                            padding:1.5rem; 
+                            border-radius:20px; 
+                            text-align:center;
+                            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+                        ">
+                            <div style='font-size:14px; color:#888;'>{title}</div>
+                            <div style='font-size:22px; font-weight:700; color:{color};'>{val}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
+                    # --- Export Data ---
                     export_data.append({
                         "Model": model,
                         "Forecasted Price": next_price,
@@ -570,6 +551,7 @@ if uploaded_file_csv_2 and 'df' in locals():
         st.error(f"Data processing error in forecast block: {e}")
 else:
     st.info("Upload a CSV file to run forecasts.")
+
 
 
 
