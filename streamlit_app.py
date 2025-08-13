@@ -427,8 +427,6 @@ if uploaded_file_csv_2:
 # ========================
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
 # ========================
-import os  # ✅ Ensure os is imported at top of file
-
 try:
     HIST_FILE = "historical_forecasts.csv"
     BACKUP_DIR = "backups"
