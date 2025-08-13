@@ -106,7 +106,7 @@ selected_company_symbol = next((c["symbol"] for c in company_options if c["name"
 st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
 
 
-# === Financial Report Upload & Analysis (Grouped) ===
+# === Advanced Financial Report Upload & Analysis ===
 st.subheader("📄 Upload Financial Report (PDF)")
 
 uploaded_file_main = st.file_uploader(
@@ -121,14 +121,25 @@ uploaded_file_2 = st.file_uploader(
     key="financial_report_secondary"
 )
 
-def safe_extract_text(file):
+import pytesseract
+from pdf2image import convert_from_bytes
+import re
+
+def extract_text_from_pdf(file):
+    """Intensively read PDF using OCR."""
     try:
-        return extract_text_from_pdf(file)
+        pages = convert_from_bytes(file.read())
+        text = ""
+        for page in pages:
+            page_text = pytesseract.image_to_string(page, lang='eng')
+            text += page_text + "\n"
+        return text
     except Exception as e:
-        st.error(f"Error extracting PDF text: {e}")
+        st.error(f"Error reading PDF: {e}")
         return ""
 
 def extract_financial_metrics(text):
+    """Extract key financial metrics using regex."""
     metrics_patterns = {
         "Revenue (KES)": r"(?:Revenue|Sales|Turnover)[^\d]*(\d[\d,\.]*)",
         "Net Income (KES)": r"(?:Net Income|Profit after tax|Net profit)[^\d]*(\d[\d,\.]*)",
@@ -143,37 +154,71 @@ def extract_financial_metrics(text):
     for metric, pattern in metrics_patterns.items():
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            extracted_data[metric] = match.group(1).replace(",", "")
+            extracted_data[metric] = float(match.group(1).replace(",", ""))
         else:
-            extracted_data[metric] = "N/A"
+            extracted_data[metric] = None
     return extracted_data
 
+def generate_insights(metrics):
+    """Generate investor-focused commentary based on extracted metrics."""
+    insights = []
+    
+    revenue = metrics.get("Revenue (KES)")
+    net_income = metrics.get("Net Income (KES)")
+    eps = metrics.get("EPS (KES)")
+    debt = metrics.get("Debt (KES)")
+    cash_flow = metrics.get("Cash Flow (KES)")
+    assets = metrics.get("Assets (KES)")
+    equity = metrics.get("Equity (KES)")
 
+    if revenue: 
+        insights.append(f"💰 Revenue is {revenue:,.0f} KES, indicating the company's scale of operations.")
+    if net_income:
+        margin = (net_income / revenue * 100) if revenue else None
+        insights.append(f"📈 Net Income is {net_income:,.0f} KES" + (f" ({margin:.2f}% margin)" if margin else ""))
+    if eps:
+        insights.append(f"🧾 EPS stands at {eps:.2f} KES per share.")
+    if debt:
+        insights.append(f"🏦 Total Debt is {debt:,.0f} KES, reflecting the company's leverage.")
+    if cash_flow:
+        insights.append(f"💵 Operating Cash Flow is {cash_flow:,.0f} KES, showing liquidity from operations.")
+    if assets and equity:
+        debt_to_equity = (debt / equity) if debt and equity else None
+        insights.append(f"📊 Total Assets: {assets:,.0f} KES, Equity: {equity:,.0f} KES" + 
+                        (f", Debt-to-Equity ratio: {debt_to_equity:.2f}" if debt_to_equity else ""))
+    
+    if not insights:
+        insights.append("⚠️ No key financial metrics could be extracted.")
+    
+    return insights
+
+def display_metrics(title, metrics):
+    st.markdown(f"### {title}")
+    # Display table
+    df_metrics = pd.DataFrame.from_dict(metrics, orient='index', columns=["Value"])
+    st.dataframe(df_metrics.style.format("{:.2f}"), use_container_width=True)
+    
+    # Display insights
+    st.markdown("**Investor Insights:**")
+    insights = generate_insights(metrics)
+    for insight in insights:
+        st.write(insight)
+
+# Process first report
 if uploaded_file_main is not None:
-    st.markdown("### Report 1 Analysis")
-    with st.spinner("Extracting and analyzing report 1..."):
-        text1 = safe_extract_text(uploaded_file_main)
+    with st.spinner("Extracting and analyzing Report 1..."):
+        text1 = extract_text_from_pdf(uploaded_file_main)
         if text1:
             metrics1 = extract_financial_metrics(text1)
-            df_metrics1 = pd.DataFrame(metrics1.items(), columns=["Metric", "Value"])
-            st.dataframe(df_metrics1)
-            st.markdown("**Insights:**")
-            for metric, val in metrics1.items():
-                if val != "N/A":
-                    st.write(f"✅ {metric}: {val}")
+            display_metrics("Report 1 Analysis", metrics1)
 
+# Process second report
 if uploaded_file_2 is not None:
-    st.markdown("### Report 2 Analysis")
-    with st.spinner("Extracting and analyzing report 2..."):
-        text2 = safe_extract_text(uploaded_file_2)
+    with st.spinner("Extracting and analyzing Report 2..."):
+        text2 = extract_text_from_pdf(uploaded_file_2)
         if text2:
             metrics2 = extract_financial_metrics(text2)
-            df_metrics2 = pd.DataFrame(metrics2.items(), columns=["Metric", "Value"])
-            st.dataframe(df_metrics2)
-            st.markdown("**Insights:**")
-            for metric, val in metrics2.items():
-                if val != "N/A":
-                    st.write(f"✅ {metric}: {val}")
+            display_metrics("Report 2 Analysis", metrics2)
 
 # =========================
 # 🔕 Holiday & Weekend Logic
