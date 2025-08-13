@@ -561,21 +561,20 @@ try:
     else:
         final_price = get_final_prediction(current_preds, blender)
 
-# =========================
-# Enhanced Multi-Column Smart Table with Gradient & Tooltips
-# =========================
-model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
-max_dev = max(abs(np.array(current_preds) - final_price))  # max deviation for scaling
+    # =========================
+    # Animated Smart Table
+    # =========================
+    model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
+    max_dev = max(abs(np.array(current_preds) - final_price)) or 1  # avoid div by zero
 
-cells_html = ""
-for name, val in zip(model_names, current_preds):
-    deviation = val - final_price
-    # Green for above, red for below, intensity proportional to deviation
-    intensity = int(20 + 80 * (abs(deviation) / max_dev))  # 20-100 for lightness
-    color = f"#4CAF50{intensity:02X}" if deviation >= 0 else f"#F44336{intensity:02X}"
-    tooltip_text = f"{name} prediction: {val:.4f} KES (Deviation: {deviation:+.4f})"
+    cells_html = ""
+    for name, val in zip(model_names, current_preds):
+        deviation = val - final_price
+        intensity = int(20 + 80 * (abs(deviation) / max_dev))
+        color = f"#4CAF50{intensity:02X}" if deviation >= 0 else f"#F44336{intensity:02X}"
+        tooltip_text = f"{name} prediction: {val:.4f} KES (Deviation: {deviation:+.4f})"
 
-    cells_html += f"""
+        cells_html += f"""
 <div style="
     flex:1;
     background:{color};
@@ -585,13 +584,21 @@ for name, val in zip(model_names, current_preds):
     font-weight:600;
     color:{'black' if intensity>50 else '#fff'};
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+    transform: scaleY(0);
+    transform-origin: bottom;
+    animation: grow 0.7s forwards;
 " title="{tooltip_text}">
     <strong>{name}</strong><br>{val:.4f}
 </div>
 """
 
-# Wrap all cells in a single flex container
-st.markdown(f"""
+    st.markdown(f"""
+<style>
+@keyframes grow {{
+    0% {{ transform: scaleY(0); }}
+    100% {{ transform: scaleY(1); }}
+}}
+</style>
 <div style="
     background-color:#ffffff;
     padding:2rem;
@@ -608,12 +615,9 @@ st.markdown(f"""
         color:#121212;
         margin-bottom:1.5rem;
     ">{final_price:.2f} KES</div>
-    <div style="display:flex; gap:0.5rem;">
-        {cells_html}
-    </div>
+    <div style="display:flex; gap:0.5rem;">{cells_html}</div>
 </div>
 """, unsafe_allow_html=True)
-
 
     # =========================
     # Contribution Bar Chart
@@ -660,6 +664,7 @@ st.markdown(f"""
 
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
+
 
 # =========================
 # 📊 Sentiment Analysis Section
