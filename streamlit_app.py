@@ -253,24 +253,30 @@ if uploaded_file_csv_2:
         # Remove weekends and custom holidays
         df = df[df['Date'].dt.weekday < 5]
         df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
-# =========================
-# 📊 Technical Indicators
-# =========================
-if 'Close' in df.columns:
-    df['Daily Return'] = df['Close'].pct_change()
 
-    delta = df['Close'].diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
+try:
+    # =========================
+    # 📊 Technical Indicators
+    # =========================
+    if 'Close' in df.columns:
+        df['Daily Return'] = df['Close'].pct_change()
 
-    avg_gain = gain.rolling(window=14).mean()
-    avg_loss = loss.rolling(window=14).mean()
+        delta = df['Close'].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
 
-    rs = avg_gain / avg_loss
-    df['RSI'] = 100 - (100 / (1 + rs))
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
 
-    with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
-        st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
+        rs = avg_gain / avg_loss
+        df['RSI'] = 100 - (100 / (1 + rs))
+
+        with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
+            st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
+
+except Exception as e:
+    st.error(f"Error calculating technical indicators: {e}")
+
 
 # Preview cleaned dataset with styled card
 st.markdown(f"""
