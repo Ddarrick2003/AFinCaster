@@ -438,6 +438,7 @@ if uploaded_file_csv_2 and 'df' in locals():
                 with st.container():
                     forecast_df = None
                     mae = None
+                    fig_forecast = None
 
                     if model == "LSTM":
                         forecast_df, mae = run_lstm_forecast(df, forecast_days, currency)
@@ -473,7 +474,6 @@ if uploaded_file_csv_2 and 'df' in locals():
                         avg_vol = volatility_df['Volatility'].mean()
                         max_vol = volatility_df['Volatility'].max()
                         min_vol = volatility_df['Volatility'].min()
-
                         col1, col2, col3 = st.columns(3)
                         for col, title, val in zip([col1, col2, col3],
                                                    ["Average Volatility", "Max Volatility", "Min Volatility"],
@@ -493,7 +493,7 @@ if uploaded_file_csv_2 and 'df' in locals():
                             """, unsafe_allow_html=True)
 
                     elif model == "XGBoost":
-                        # Use new 4-return function
+                        # Updated 4-return function
                         forecast_df, mae, fig_shap, fig_forecast = run_xgboost_with_shap(df, forecast_days, currency)
                         st.plotly_chart(fig_forecast, use_container_width=True)
                         display_mae_chart(mae)
@@ -513,7 +513,7 @@ if uploaded_file_csv_2 and 'df' in locals():
                     if forecast_df is not None and not forecast_df.empty:
                         last_date = df['Date'].max()
                         next_trading_day = get_next_trading_day(last_date)
-                        next_price = forecast_df.iloc[0]['Forecast'] if 'Forecast' in forecast_df.columns else float('nan')
+                        next_price = forecast_df['Forecast'].iloc[0] if 'Forecast' in forecast_df.columns else float('nan')
 
                         last_close = df['Close'].iloc[-1]
                         change = next_price - last_close
@@ -596,10 +596,10 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
-        # Collect all forecasted prices
         blended_df = pd.DataFrame(export_data)
         blended_df['Forecasted Price'] = pd.to_numeric(blended_df['Forecasted Price'], errors='coerce')
         blended_df = blended_df.dropna(subset=['Forecasted Price'])
+
         if not blended_df.empty:
             blended_price = blended_df['Forecasted Price'].mean()
             last_close = blended_df['Last Price'].iloc[0]
@@ -609,10 +609,9 @@ try:
             signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
             signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
 
-            # Dates for blended forecast
             next_trading_day = get_next_trading_day(df['Date'].max())
 
-            # Plot blended forecast chart
+            # Blended Forecast Chart
             import plotly.graph_objects as go
             fig_blend = go.Figure()
             fig_blend.add_trace(go.Scatter(
@@ -640,7 +639,7 @@ try:
             )
             st.plotly_chart(fig_blend, use_container_width=True)
 
-            # Display signal card
+            # Signal Cards
             col1, col2, col3 = st.columns(3)
             col1.markdown(f"""
             <div style='
@@ -681,6 +680,7 @@ try:
             """, unsafe_allow_html=True)
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
+
 
 # ========================
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
