@@ -15,7 +15,10 @@ from sklearn.linear_model import LinearRegression
 from scipy.interpolate import interp1d
 import datetime
 import altair as alt
+import io
 
+from pdfminer.high_level import extract_text
+from sklearn.feature_extraction.text import TfidfVectorizer
 from utils.helpers import convert_currency, display_mae_chart
 from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
@@ -106,14 +109,6 @@ selected_company_symbol = next((c["symbol"] for c in company_options if c["name"
 st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
 
 
-import streamlit as st
-import pandas as pd
-import re
-from pdfminer.high_level import extract_text
-import pytesseract
-from PIL import Image
-import io
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 # === File Upload ===
 st.subheader("📄 Upload Financial Report(s)")
