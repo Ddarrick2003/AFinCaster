@@ -294,7 +294,7 @@ if uploaded_file_csv_2:
     </div>
     """, unsafe_allow_html=True)
 
-    st.dataframe(df.tail(), use_container_width=True)
+    st.dataframe(df.tail(20), use_container_width=True)
 
 
 
