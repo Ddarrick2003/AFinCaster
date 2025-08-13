@@ -106,44 +106,39 @@ selected_company_symbol = next((c["symbol"] for c in company_options if c["name"
 st.markdown(f"✅ **Selected Company Symbol:** `{selected_company_symbol}`")
 
 
-# === Financial Report Upload & Analysis (Smart Dashboard) ===
-st.subheader("📄 Upload Financial Report (PDF)")
+import streamlit as st
+import pandas as pd
+import re
+from pdfminer.high_level import extract_text
+import pytesseract
+from PIL import Image
+import io
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# === File Upload ===
+st.subheader("📄 Upload Financial Report(s)")
 
 uploaded_file_main = st.file_uploader(
-    "Upload Financial Report",
-    type=["pdf"],
-    key="financial_report_main"
+    "Upload Financial Report (PDF)", type=["pdf"], key="financial_report_main"
 )
-
 uploaded_file_2 = st.file_uploader(
-    "Upload Another Financial Report for Comparison (Optional)",
-    type=["pdf"],
-    key="financial_report_secondary"
+    "Upload Another Financial Report for Comparison (Optional)", type=["pdf"], key="financial_report_secondary"
 )
 
-import pdfplumber
-from pytesseract import image_to_string
-from pdf2image import convert_from_bytes
-import re
-
-# Function to safely extract text (auto-detect)
+# === PDF Extraction ===
 def safe_extract_text(file):
     try:
-        # Try text-based extraction first
-        with pdfplumber.open(file) as pdf:
-            text = "\n".join(page.extract_text() or "" for page in pdf.pages)
-        # If text is too short, fallback to OCR
-        if len(text.strip()) < 50:
-            images = convert_from_bytes(file.read())
-            text = ""
-            for img in images:
-                text += image_to_string(img) + "\n"
-        return text
+        return extract_text(file)
     except Exception as e:
-        st.error(f"Error extracting PDF text: {e}")
-        return ""
+        st.warning(f"PDF extraction failed, trying OCR... {e}")
+        try:
+            image = Image.open(file)
+            return pytesseract.image_to_string(image)
+        except:
+            st.error("Unable to extract text from PDF.")
+            return ""
 
-# Extract key financial metrics with regex
+# === Metric Extraction ===
 def extract_financial_metrics(text):
     metrics_patterns = {
         "Revenue (KES)": r"(?:Revenue|Sales|Turnover)[^\d]*(\d[\d,\.]*)",
@@ -152,20 +147,39 @@ def extract_financial_metrics(text):
         "Debt (KES)": r"(?:Debt|Borrowings|Loans)[^\d]*(\d[\d,\.]*)",
         "Cash Flow (KES)": r"(?:Cash Flow from operations|Operating cash flow)[^\d]*(\d[\d,\.]*)",
         "Assets (KES)": r"(?:Total Assets)[^\d]*(\d[\d,\.]*)",
-        "Equity (KES)": r"(?:Total Equity|Shareholder[’']s equity)[^\d]*(\d[\d,\.]*)"
+        "Equity (KES)": r"(?:Total Equity|Shareholder’s equity)[^\d]*(\d[\d,\.]*)"
     }
-
+    
     extracted_data = {}
     for metric, pattern in metrics_patterns.items():
         match = re.search(pattern, text, re.IGNORECASE)
-        extracted_data[metric] = match.group(1).replace(",", "") if match else "N/A"
+        if match:
+            extracted_data[metric] = match.group(1).replace(",", "")
+        else:
+            extracted_data[metric] = "N/A"
     return extracted_data
 
-# Function to display metrics in a styled dashboard
+# === Denomination Formatter ===
+def format_with_scale(value_str):
+    try:
+        val = float(value_str)
+        if val >= 1e9:
+            return f"{val/1e9:.2f} B"
+        elif val >= 1e6:
+            return f"{val/1e6:.2f} M"
+        elif val >= 1e3:
+            return f"{val/1e3:.2f} K"
+        else:
+            return f"{val:.2f}"
+    except:
+        return value_str
+
+# === Display Metrics Cards ===
 def display_metrics(metrics, title="Report Analysis"):
     st.markdown(f"### {title}")
     cells_html = ""
     for metric, val in metrics.items():
+        display_val = format_with_scale(val)
         color = "#4CAF50" if val != "N/A" else "#F44336"
         cells_html += f"""
         <div style="
@@ -179,7 +193,7 @@ def display_metrics(metrics, title="Report Analysis"):
             box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
             margin:0.25rem;
         ">
-            <strong>{metric}</strong><br>{val}
+            <strong>{metric}</strong><br>{display_val}
         </div>
         """
     st.markdown(f"""
@@ -194,21 +208,96 @@ def display_metrics(metrics, title="Report Analysis"):
     ">{cells_html}</div>
     """, unsafe_allow_html=True)
 
-# Process first report
-if uploaded_file_main is not None:
-    with st.spinner("Extracting and analyzing Report 1..."):
-        text1 = safe_extract_text(uploaded_file_main)
-        if text1:
-            metrics1 = extract_financial_metrics(text1)
-            display_metrics(metrics1, title="📄 Report 1 Analysis")
+# === Generate Commentary with Colors ===
+def generate_commentary(metrics1, metrics2=None):
+    commentary = []
+    if metrics2:
+        for key in metrics1.keys():
+            val1, val2 = metrics1[key], metrics2[key]
+            try:
+                val1f, val2f = float(val1), float(val2)
+                change = val2f - val1f
+                pct_change = (change / val1f) * 100 if val1f != 0 else 0
+                if change > 0:
+                    commentary.append(f"<span style='color:green;'>✅ {key} increased by {pct_change:.2f}% from Report 1 to Report 2.</span>")
+                elif change < 0:
+                    commentary.append(f"<span style='color:red;'>⚠️ {key} decreased by {abs(pct_change):.2f}% from Report 1 to Report 2.</span>")
+                else:
+                    commentary.append(f"<span style='color:gray;'>ℹ️ {key} remained stable between the reports.</span>")
+            except:
+                continue
+    return commentary
 
-# Process second report (optional)
+# === Summarize Report Text ===
+def summarize_report(text, top_n=5):
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    if len(sentences) <= top_n:
+        return sentences
+    vectorizer = TfidfVectorizer(stop_words='english')
+    X = vectorizer.fit_transform(sentences)
+    scores = X.sum(axis=1)
+    scored_sentences = [(s, scores[i,0]) for i,s in enumerate(sentences)]
+    scored_sentences.sort(key=lambda x: x[1], reverse=True)
+    summary = [s for s,_ in scored_sentences[:top_n]]
+    return summary
+
+# === Extract & Display ===
+metrics1, metrics2 = None, None
+text1, text2 = "", ""
+if uploaded_file_main is not None:
+    text1 = safe_extract_text(uploaded_file_main)
+    if text1:
+        metrics1 = extract_financial_metrics(text1)
+        display_metrics(metrics1, "Report 1 Analysis")
+
 if uploaded_file_2 is not None:
-    with st.spinner("Extracting and analyzing Report 2..."):
-        text2 = safe_extract_text(uploaded_file_2)
-        if text2:
-            metrics2 = extract_financial_metrics(text2)
-            display_metrics(metrics2, title="📄 Report 2 Analysis")
+    text2 = safe_extract_text(uploaded_file_2)
+    if text2:
+        metrics2 = extract_financial_metrics(text2)
+        display_metrics(metrics2, "Report 2 Analysis")
+
+# === Commentary & Comparison Table ===
+if metrics1 and metrics2:
+    st.markdown("### 📊 Year-over-Year Comparison")
+    comp_data = []
+    for key in metrics1.keys():
+        val1, val2 = metrics1[key], metrics2[key]
+        display_val1, display_val2 = format_with_scale(val1), format_with_scale(val2)
+        color_val = ""
+        try:
+            val1f, val2f = float(val1), float(val2)
+            change = val2f - val1f
+            color_val = "green" if change>0 else "red" if change<0 else "gray"
+        except:
+            color_val = "black"
+        comp_data.append((key, display_val1, display_val2, color_val))
+    
+    # Display as colored dataframe
+    comp_html = "<table style='width:100%; border-collapse:collapse;'>"
+    comp_html += "<tr><th>Metric</th><th>Report 1</th><th>Report 2</th></tr>"
+    for row in comp_data:
+        comp_html += f"<tr style='color:{row[3]}'><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>"
+    comp_html += "</table>"
+    st.markdown(comp_html, unsafe_allow_html=True)
+
+    st.markdown("### 📝 Auto-Generated Commentary")
+    commentary = generate_commentary(metrics1, metrics2)
+    for line in commentary:
+        st.markdown(line, unsafe_allow_html=True)
+
+# === Summarized Report Text ===
+if text1:
+    st.markdown("### 📄 Key Highlights from Report 1")
+    summary1 = summarize_report(text1)
+    for s in summary1:
+        st.write(f"- {s}")
+
+if text2:
+    st.markdown("### 📄 Key Highlights from Report 2")
+    summary2 = summarize_report(text2)
+    for s in summary2:
+        st.write(f"- {s}")
+
 
 
 # =========================
