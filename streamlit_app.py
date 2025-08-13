@@ -398,6 +398,10 @@ try:
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
     def train_blender(historical_df):
+        # Skip training if there's no valid data
+        if historical_df.empty or len(historical_df.dropna()) < 1:
+            st.warning("⚠️ Not enough historical data to train blending model. Using equal weights.")
+            return None, np.array([0.2, 0.2, 0.2, 0.2, 0.2])
         X = historical_df[['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']].values
         y = historical_df['Actual'].values
         model = LinearRegression()
@@ -429,8 +433,8 @@ try:
         ])
         historical_data.to_csv(HIST_FILE, index=False)
 
-    # ✅ Safely get forecast values from export_data
-    model_forecast_map = {row["Model"]: row["Forecasted Price"] for row in export_data if "Model" in row}
+    # Safely get forecast values from export_data
+    model_forecast_map = {row.get("Model"): row.get("Forecasted Price") for row in export_data if "Model" in row}
     lstm_forecast_value = model_forecast_map.get("LSTM", np.nan)
     garch_forecast_value = model_forecast_map.get("GARCH", np.nan)
     xgb_forecast_value = model_forecast_map.get("XGBoost", np.nan)
@@ -445,14 +449,14 @@ try:
         autoformer_forecast_value
     ]
 
-    # ✅ Placeholder actual price function if not available
+    # Placeholder actual price function
     def get_actual_price_for_symbol(symbol):
-        # Replace with real API call or data source
         return np.nan
 
     today_actual_price = get_actual_price_for_symbol(selected_company_symbol)
     today_str = datetime.date.today().isoformat()
 
+    # Append today's predictions if not present
     if today_str not in historical_data['Date'].values:
         new_row = pd.DataFrame([{
             'Date': today_str,
@@ -465,7 +469,6 @@ try:
         }])
         historical_data = pd.concat([historical_data, new_row], ignore_index=True)
         historical_data.to_csv(HIST_FILE, index=False)
-
         backup_filename = f"{BACKUP_DIR}/historical_forecasts_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         historical_data.to_csv(backup_filename, index=False)
 
@@ -479,14 +482,14 @@ try:
         st.session_state.weights = weights
         st.session_state.last_train_date = datetime.date.today()
     else:
-        blender = st.session_state.blender
-        weights = st.session_state.weights
+        blender = st.session_state.get("blender", None)
+        weights = st.session_state.get("weights", np.array([0.2, 0.2, 0.2, 0.2, 0.2]))
 
-    # Final blended price
-    if not any(np.isnan(current_preds)):
-        final_price = get_final_prediction(current_preds, blender)
+    # Final blended price with fallback
+    if blender is None or any(np.isnan(current_preds)):
+        final_price = np.nanmean(current_preds)  # average ignoring NaNs
     else:
-        final_price = np.nan
+        final_price = get_final_prediction(current_preds, blender)
 
     # Display results
     col1, col2 = st.columns(2)
@@ -530,6 +533,7 @@ try:
 
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
+
 
 
 # =========================
