@@ -208,22 +208,8 @@ if uploaded_file_csv:
     df = df[df['Date'].dt.weekday < 5]  # exclude weekends
     df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
 
-    # Calculate Technical Indicators if Close column exists
-    if 'Close' in df.columns:
-        df['Daily Return'] = df['Close'].pct_change()
-
-        delta = df['Close'].diff()
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-
-        avg_gain = gain.rolling(window=14).mean()
-        avg_loss = loss.rolling(window=14).mean()
-
-        rs = avg_gain / avg_loss
-        df['RSI'] = 100 - (100 / (1 + rs))
-
-    with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
-        st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
+    with st.expander("🔍 Preview Data: Date, Close", expanded=True):
+        st.dataframe(df[['Date', 'Close']].dropna().tail(10))
 
 
 # === Forecast Task Configuration (Grouped) ===
