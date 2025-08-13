@@ -254,45 +254,48 @@ if uploaded_file_csv_2:
         df = df[df['Date'].dt.weekday < 5]
         df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
 
-try:
+    except Exception as e:
+        st.error(f"Error processing uploaded CSV: {e}")
+
     # =========================
     # 📊 Technical Indicators
     # =========================
-    if 'Close' in df.columns:
-        df['Daily Return'] = df['Close'].pct_change()
+    try:
+        if 'Close' in df.columns:
+            df['Daily Return'] = df['Close'].pct_change()
 
-        delta = df['Close'].diff()
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
+            delta = df['Close'].diff()
+            gain = delta.where(delta > 0, 0)
+            loss = -delta.where(delta < 0, 0)
 
-        avg_gain = gain.rolling(window=14).mean()
-        avg_loss = loss.rolling(window=14).mean()
+            avg_gain = gain.rolling(window=14).mean()
+            avg_loss = loss.rolling(window=14).mean()
 
-        rs = avg_gain / avg_loss
-        df['RSI'] = 100 - (100 / (1 + rs))
+            rs = avg_gain / avg_loss
+            df['RSI'] = 100 - (100 / (1 + rs))
 
-        with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
-            st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
+            with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
+                st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
 
-except Exception as e:
-    st.error(f"Error calculating technical indicators: {e}")
+    except Exception as e:
+        st.error(f"Error calculating technical indicators: {e}")
 
+    # Preview cleaned dataset
+    st.markdown(f"""
+    <div style="
+        background: #ffffff;
+        padding: 1.5rem 2rem;
+        border-radius: 20px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+    ">
+        <h3 style="color:#121212; font-weight:700; margin-bottom:0.5rem;">🧼 Preview of <code>{task_name}</code> Dataset</h3>
+        <div style="font-size:14px; color:#555;">Showing last 5 rows of your uploaded dataset</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Preview cleaned dataset with styled card
-st.markdown(f"""
-<div style="
-    background: #ffffff;
-    padding: 1.5rem 2rem;
-    border-radius: 20px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    margin-bottom: 1.5rem;
-">
-    <h3 style="color:#121212; font-weight:700; margin-bottom:0.5rem;">🧼 Preview of <code>{task_name}</code> Dataset</h3>
-    <div style="font-size:14px; color:#555;">Showing last 5 rows of your uploaded dataset</div>
-</div>
-""", unsafe_allow_html=True)
+    st.dataframe(df.tail(), use_container_width=True)
 
-st.dataframe(df.tail(), use_container_width=True)
 
 
 # =========================
