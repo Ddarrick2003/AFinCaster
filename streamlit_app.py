@@ -561,49 +561,59 @@ try:
     else:
         final_price = get_final_prediction(current_preds, blender)
 
-    # =========================
-    # Styled Multi-Column Smart Table with Color Coding
-    # =========================
-    model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
-    cell_colors = ['#4CAF50' if p >= final_price else '#F44336' for p in current_preds]  # Green if above, Red if below
+# =========================
+# Enhanced Multi-Column Smart Table with Gradient & Tooltips
+# =========================
+model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
+max_dev = max(abs(np.array(current_preds) - final_price))  # max deviation for scaling
 
-    cells_html = ""
-    for name, val, color in zip(model_names, current_preds, cell_colors):
-        cells_html += f"""
-        <div style="
-            flex:1;
-            background:{color}20;
-            padding:0.75rem;
-            border-radius:12px;
-            text-align:center;
-            font-weight:600;
-            color:{color};
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
-        ">
-            <strong>{name}</strong><br>{val:.4f}
-        </div>
-        """
+cells_html = ""
+for name, val in zip(model_names, current_preds):
+    deviation = val - final_price
+    # Green for above, red for below, intensity proportional to deviation
+    intensity = int(20 + 80 * (abs(deviation) / max_dev))  # 20-100 for lightness
+    color = f"#4CAF50{intensity:02X}" if deviation >= 0 else f"#F44336{intensity:02X}"
+    tooltip_text = f"{name} prediction: {val:.4f} KES (Deviation: {deviation:+.4f})"
 
-    st.markdown(f"""
+    cells_html += f"""
+<div style="
+    flex:1;
+    background:{color};
+    padding:0.75rem;
+    border-radius:12px;
+    text-align:center;
+    font-weight:600;
+    color:{'black' if intensity>50 else '#fff'};
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+" title="{tooltip_text}">
+    <strong>{name}</strong><br>{val:.4f}
+</div>
+"""
+
+# Wrap all cells in a single flex container
+st.markdown(f"""
+<div style="
+    background-color:#ffffff;
+    padding:2rem;
+    border-radius:24px;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.08);
+    font-family: 'Space Grotesk', sans-serif;
+    max-width:750px;
+    margin:auto;
+">
+    <h3 style="color:#2E8B57; font-weight:700; margin-bottom:1rem;">📊 Final Blended Price Forecast</h3>
     <div style="
-        background-color:#ffffff;
-        padding:2rem;
-        border-radius:24px;
-        box-shadow: 0 8px 22px rgba(0,0,0,0.08);
-        font-family: 'Space Grotesk', sans-serif;
-        max-width:750px;
-        margin:auto;
-    ">
-        <h3 style="color:#2E8B57; font-weight:700; margin-bottom:1rem;">📊 Final Blended Price Forecast</h3>
-        <div style="
-            font-size:28px;
-            font-weight:700;
-            color:#121212;
-            margin-bottom:1.5rem;
-        ">{final_price:.2f} KES</div>
-        <div style="display:flex; gap:0.5rem;">{cells_html}</div>
+        font-size:28px;
+        font-weight:700;
+        color:#121212;
+        margin-bottom:1.5rem;
+    ">{final_price:.2f} KES</div>
+    <div style="display:flex; gap:0.5rem;">
+        {cells_html}
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
+
 
     # =========================
     # Contribution Bar Chart
