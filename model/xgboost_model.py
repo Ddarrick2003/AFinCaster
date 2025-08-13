@@ -1,81 +1,82 @@
 import pandas as pd
 import xgboost as xgb
 import shap
-import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error
+import plotly.graph_objects as go
 
 def run_xgboost_with_shap(df, forecast_days, currency="KSh"):
     df = df.copy()
-
-    # Ensure proper types
-    df['Date'] = pd.to_datetime(df['Date'])
-    df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
-    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+    
+    # Ensure numeric
+    for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
     df.dropna(subset=['Close', 'Volume'], inplace=True)
-
-    # Adjust forecast_days if dataset is small
-    if len(df) <= forecast_days:
-        forecast_days = len(df) - 1
-
-    # Create target
+    
+    # Target for forecasting
     df['Target'] = df['Close'].shift(-forecast_days)
     df.dropna(inplace=True)
-
+    
+    if df.empty or len(df) < forecast_days:
+        return pd.DataFrame(), float('nan'), None, None
+    
     features = ['Open', 'High', 'Low', 'Close', 'Volume']
     X = df[features]
     y = df['Target']
-
+    
     # Scale features
     scaler_X = MinMaxScaler()
     X_scaled = scaler_X.fit_transform(X)
-
-    # Train XGBoost
+    
+    # Train model
     model = xgb.XGBRegressor()
     model.fit(X_scaled, y)
-
+    
     # Forecast
     future_X = df[features].iloc[-forecast_days:]
     future_X_scaled = scaler_X.transform(future_X)
     predictions = model.predict(future_X_scaled)
-
+    
     forecast_dates = pd.date_range(start=df['Date'].max() + pd.Timedelta(days=1), periods=forecast_days)
     forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast': predictions})
-    forecast_df['Forecast'] = pd.to_numeric(forecast_df['Forecast'], errors='coerce')
-
-    # Compute MAE
+    
+    # MAE (compare with last known actuals)
     actuals = df['Close'].iloc[-forecast_days:]
-    mae = mean_absolute_error(actuals, forecast_df['Forecast'][:len(actuals)])
-
-    # SHAP Explainability
-    explainer = shap.Explainer(model)
-    shap_values = explainer(X_scaled)
-
-    # Interactive SHAP bar chart
-    shap_mean = pd.DataFrame({
-        'Feature': features,
-        'SHAP Value': abs(shap_values.values).mean(axis=0)
-    }).sort_values(by='SHAP Value', ascending=True)
-
-    fig_shap = go.Figure()
-    fig_shap.add_trace(go.Bar(
-        x=shap_mean['SHAP Value'],
-        y=shap_mean['Feature'],
-        orientation='h',
-        marker=dict(color=shap_mean['SHAP Value'], colorscale='Viridis'),
-        text=[f"{val:.4f}" for val in shap_mean['SHAP Value']],
-        textposition='auto',
-        hovertemplate='Feature: %{y}<br>Mean |SHAP|: %{x:.4f}<extra></extra>'
-    ))
-    fig_shap.update_layout(
-        title="🔹 XGBoost Feature Importance (Mean |SHAP|)",
-        xaxis_title="Mean |SHAP Value|",
-        yaxis_title="Feature",
-        template="plotly_white",
-        height=400
-    )
-
-    # Predicted vs Actual chart
+    mae = mean_absolute_error(actuals, predictions[:len(actuals)]) if not actuals.empty else float('nan')
+    
+    # SHAP Explainability (safe)
+    fig_shap = None
+    try:
+        explainer = shap.Explainer(model)
+        shap_values = explainer(X_scaled)
+        
+        shap_mean = pd.DataFrame({
+            'Feature': features,
+            'SHAP Value': abs(shap_values.values).mean(axis=0)
+        }).sort_values(by='SHAP Value', ascending=True)
+        
+        fig_shap = go.Figure()
+        fig_shap.add_trace(go.Bar(
+            x=shap_mean['SHAP Value'],
+            y=shap_mean['Feature'],
+            orientation='h',
+            marker=dict(color=shap_mean['SHAP Value'], colorscale='Viridis'),
+            text=[f"{val:.4f}" for val in shap_mean['SHAP Value']],
+            textposition='auto',
+            hovertemplate='Feature: %{y}<br>Mean |SHAP|: %{x:.4f}<extra></extra>'
+        ))
+        fig_shap.update_layout(
+            title="🔹 XGBoost Feature Importance (Mean |SHAP|)",
+            xaxis_title="Mean |SHAP Value|",
+            yaxis_title="Feature",
+            template="plotly_white",
+            height=400
+        )
+    except Exception:
+        # SHAP failed, just skip
+        fig_shap = None
+    
+    # Forecast vs Actual chart
     fig_pred = go.Figure()
     fig_pred.add_trace(go.Scatter(
         x=df['Date'].iloc[-forecast_days:],
@@ -98,6 +99,5 @@ def run_xgboost_with_shap(df, forecast_days, currency="KSh"):
         template="plotly_white",
         height=400
     )
-
-    # Return 4 values
+    
     return forecast_df, mae, fig_shap, fig_pred
