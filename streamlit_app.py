@@ -271,27 +271,38 @@ export_data = []
 
 if uploaded_file_csv_2:
     try:
+        # Read and clean CSV
         df = pd.read_csv(uploaded_file_csv_2)
         df.columns = df.columns.str.strip()
         df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
         df = df.sort_values(by='Date')
 
+        # Convert numeric columns
         for col in df.columns:
             if df[col].dtype == 'object':
                 try:
-                    df[col] = pd.to_numeric(df[col].str.replace(',', '').str.replace('-', ''), errors='coerce')
+                    df[col] = pd.to_numeric(
+                        df[col].str.replace(',', '').str.replace('-', ''),
+                        errors='coerce'
+                    )
                 except Exception:
                     pass
 
+        # Auto clean if enabled
         if auto_clean:
             df.dropna(inplace=True)
 
+        # Remove weekends and custom holidays
         df = df[df['Date'].dt.weekday < 5]
         df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
 
+        # Preview cleaned dataset
         st.markdown(f"### 🧼 Preview of `{task_name}` Dataset")
         st.dataframe(df.tail(), use_container_width=True)
 
+        # =========================
+        # Run forecasts
+        # =========================
         with st.spinner("Running forecast(s)..."):
             models_to_run = [selected_model] if not run_all else ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"]
 
@@ -305,7 +316,6 @@ if uploaded_file_csv_2:
 
                     elif model == "GARCH":
                         forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
-
                         st.markdown("### 📉 Forecasted Price")
                         plot_forecast_chart(forecast_df, model)
 
@@ -326,33 +336,9 @@ if uploaded_file_csv_2:
                         min_vol = volatility_df['Volatility'].min()
 
                         col1, col2, col3 = st.columns(3)
-
-                        with col1:
-                            st.markdown(f"""
-                                <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px;
-                                            box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                                    <div style="font-size:14px; color:#888;">Average Volatility</div>
-                                    <div style="font-size:22px; font-weight:700;">{avg_vol:.4f}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-
-                        with col2:
-                            st.markdown(f"""
-                                <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px;
-                                            box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                                    <div style="font-size:14px; color:#888;">Max Volatility</div>
-                                    <div style="font-size:22px; font-weight:700;">{max_vol:.4f}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-
-                        with col3:
-                            st.markdown(f"""
-                                <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px;
-                                            box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                                    <div style="font-size:14px; color:#888;">Min Volatility</div>
-                                    <div style="font-size:22px; font-weight:700;">{min_vol:.4f}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
+                        col1.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Average Volatility</div><div style='font-size:22px; font-weight:700;'>{avg_vol:.4f}</div></div>", unsafe_allow_html=True)
+                        col2.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Max Volatility</div><div style='font-size:22px; font-weight:700;'>{max_vol:.4f}</div></div>", unsafe_allow_html=True)
+                        col3.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Min Volatility</div><div style='font-size:22px; font-weight:700;'>{min_vol:.4f}</div></div>", unsafe_allow_html=True)
 
                     elif model == "XGBoost":
                         forecast_df, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
@@ -368,6 +354,7 @@ if uploaded_file_csv_2:
                         forecast_df = run_autoformer(df, forecast_days, currency)
                         plot_forecast_chart(forecast_df, model)
 
+                    # Calculate forecast signal
                     last_date = df['Date'].max()
                     next_trading_day = get_next_trading_day(last_date)
                     next_price = forecast_df.iloc[0]['Forecast']
@@ -384,34 +371,9 @@ if uploaded_file_csv_2:
                     signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
 
                     col1, col2, col3 = st.columns(3)
-
-                    with col1:
-                        st.markdown(f"""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; 
-                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                                <div style="font-size:14px; color:#888;">Next Trading Day</div>
-                                <div style="font-size:22px; font-weight:700;">{next_trading_day.strftime('%b %d, %Y')}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col2:
-                        st.markdown(f"""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; 
-                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                                <div style="font-size:14px; color:#888;">Forecasted Price</div>
-                                <div style="font-size:22px; font-weight:700;">{currency} {next_price:,.2f}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col3:
-                        st.markdown(f"""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; 
-                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
-                                <div style="font-size:14px; color:#888;">Forecast Signal</div>
-                                <div style="font-size:20px; font-weight:700; color:{signal_color};">{signal}</div>
-                                <div style="font-size:13px; color:#666;">{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
-                            </div>
-                        """, unsafe_allow_html=True)
+                    col1.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Next Trading Day</div><div style='font-size:22px; font-weight:700;'>{next_trading_day.strftime('%b %d, %Y')}</div></div>", unsafe_allow_html=True)
+                    col2.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Forecasted Price</div><div style='font-size:22px; font-weight:700;'>{currency} {next_price:,.2f}</div></div>", unsafe_allow_html=True)
+                    col3.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Forecast Signal</div><div style='font-size:20px; font-weight:700; color:{signal_color};'>{signal}</div><div style='font-size:13px; color:#666;'>{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div></div>", unsafe_allow_html=True)
 
                     export_data.append({
                         "Model": model,
@@ -423,6 +385,9 @@ if uploaded_file_csv_2:
                         "Signal": signal,
                         "Next Trading Day": next_trading_day.strftime('%Y-%m-%d')
                     })
+
+    except Exception as e:
+        st.error(f"Data processing error in forecast block: {e}")
 
 # ========================
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
