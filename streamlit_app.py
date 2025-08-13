@@ -1,4 +1,5 @@
 import re
+import os
 import pytesseract
 from PIL import Image
 from io import BytesIO
@@ -426,10 +427,11 @@ if uploaded_file_csv_2:
 # ========================
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
 # ========================
+import os  # ✅ Ensure os is imported at top of file
+
 try:
     HIST_FILE = "historical_forecasts.csv"
     BACKUP_DIR = "backups"
-
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
     def train_blender(historical_df):
@@ -455,6 +457,7 @@ try:
             return True
         return (datetime.date.today() - last_train_date).days >= 7
 
+    # Load or create historical data file
     if os.path.exists(HIST_FILE):
         historical_data = pd.read_csv(HIST_FILE)
     else:
@@ -462,6 +465,14 @@ try:
             'Date', 'LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer', 'Actual'
         ])
         historical_data.to_csv(HIST_FILE, index=False)
+
+    # ✅ Safely get forecast values from export_data
+    model_forecast_map = {row["Model"]: row["Forecasted Price"] for row in export_data if "Model" in row}
+    lstm_forecast_value = model_forecast_map.get("LSTM", np.nan)
+    garch_forecast_value = model_forecast_map.get("GARCH", np.nan)
+    xgb_forecast_value = model_forecast_map.get("XGBoost", np.nan)
+    informer_forecast_value = model_forecast_map.get("Informer", np.nan)
+    autoformer_forecast_value = model_forecast_map.get("Autoformer", np.nan)
 
     current_preds = [
         lstm_forecast_value,
@@ -471,7 +482,12 @@ try:
         autoformer_forecast_value
     ]
 
-    today_actual_price = get_actual_price_for_symbol(selected_symbol)
+    # ✅ Placeholder actual price function if not available
+    def get_actual_price_for_symbol(symbol):
+        # Replace with real API call or data source
+        return np.nan
+
+    today_actual_price = get_actual_price_for_symbol(selected_company_symbol)
     today_str = datetime.date.today().isoformat()
 
     if today_str not in historical_data['Date'].values:
@@ -490,11 +506,12 @@ try:
         backup_filename = f"{BACKUP_DIR}/historical_forecasts_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         historical_data.to_csv(backup_filename, index=False)
 
+    # Train blender model
     if "last_train_date" not in st.session_state:
         st.session_state.last_train_date = None
 
     if should_retrain(st.session_state.last_train_date):
-        blender, weights = train_blender(historical_data)
+        blender, weights = train_blender(historical_data.dropna())
         st.session_state.blender = blender
         st.session_state.weights = weights
         st.session_state.last_train_date = datetime.date.today()
@@ -502,48 +519,55 @@ try:
         blender = st.session_state.blender
         weights = st.session_state.weights
 
-    final_price = get_final_prediction(current_preds, blender)
+    # Final blended price
+    if not any(np.isnan(current_preds)):
+        final_price = get_final_prediction(current_preds, blender)
+    else:
+        final_price = np.nan
 
+    # Display results
     col1, col2 = st.columns(2)
-    col1.metric("Final Blended Price", f"{final_price:.2f} KES")
+    col1.metric("Final Blended Price", f"{final_price:.2f} KES" if not np.isnan(final_price) else "N/A")
     col2.write(
-        f"Predictions → LSTM={current_preds[0]:.2f}, "
-        f"GARCH={current_preds[1]:.2f}, "
-        f"XGB={current_preds[2]:.2f}, "
-        f"Informer={current_preds[3]:.2f}, "
-        f"Autoformer={current_preds[4]:.2f}"
+        f"Predictions → LSTM={current_preds[0]}, "
+        f"GARCH={current_preds[1]}, "
+        f"XGB={current_preds[2]}, "
+        f"Informer={current_preds[3]}, "
+        f"Autoformer={current_preds[4]}"
     )
 
-    model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
-    contributions = np.array(weights) * final_price
+    # Contribution chart
+    if not np.isnan(final_price):
+        model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
+        contributions = np.array(weights) * final_price
+        contrib_df = pd.DataFrame({
+            'Model': model_names,
+            'Contribution': contributions,
+            'Positive': contributions > 0
+        })
 
-    contrib_df = pd.DataFrame({
-        'Model': model_names,
-        'Contribution': contributions,
-        'Positive': contributions > 0
-    })
+        bar_chart = alt.Chart(contrib_df).mark_bar().encode(
+            x=alt.X('Model:N', sort=None),
+            y=alt.Y('Contribution:Q'),
+            color=alt.condition(
+                alt.datum.Positive,
+                alt.value('#4CAF50'),
+                alt.value('#F44336')
+            ),
+            tooltip=['Model', alt.Tooltip('Contribution:Q', format='.2f')]
+        ).properties(width=500, height=300, title="Model Contribution to Final Price")
+        st.altair_chart(bar_chart, use_container_width=True)
 
-    bar_chart = alt.Chart(contrib_df).mark_bar().encode(
-        x=alt.X('Model:N', sort=None),
-        y=alt.Y('Contribution:Q'),
-        color=alt.condition(
-            alt.datum.Positive,
-            alt.value('#4CAF50'),
-            alt.value('#F44336')
-        ),
-        tooltip=['Model', alt.Tooltip('Contribution:Q', format='.2f')]
-    ).properties(width=500, height=300, title="Model Contribution to Final Price")
+        # Smoothed forecast line
+        time_points = [1, 2, 3, 4, 5]
+        smooth_time, smooth_preds = smooth_predictions(time_points, current_preds)
+        st.line_chart(pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day'))
 
-    st.altair_chart(bar_chart, use_container_width=True)
-
-    time_points = [1, 2, 3, 4, 5]
-    smooth_time, smooth_preds = smooth_predictions(time_points, current_preds)
-    st.line_chart(pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day'))
-
-    st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
+        st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
 
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
+
 
 # =========================
 # 📊 Sentiment Analysis Section
