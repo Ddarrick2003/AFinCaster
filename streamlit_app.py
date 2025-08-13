@@ -274,7 +274,7 @@ if uploaded_file_csv_2:
             rs = avg_gain / avg_loss
             df['RSI'] = 100 - (100 / (1 + rs))
 
-            with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
+            with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=False):
                 st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
 
     except Exception as e:
