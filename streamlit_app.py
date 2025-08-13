@@ -279,7 +279,7 @@ if uploaded_file_csv_2:
             if df[col].dtype == 'object':
                 try:
                     df[col] = pd.to_numeric(df[col].str.replace(',', '').str.replace('-', ''), errors='coerce')
-                except:
+                except Exception:
                     pass
 
         if auto_clean:
@@ -305,11 +305,9 @@ if uploaded_file_csv_2:
                     elif model == "GARCH":
                         forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
 
-                        # Forecast Price Chart
                         st.markdown("### 📉 Forecasted Price")
                         plot_forecast_chart(forecast_df, model)
 
-                        # Volatility Card & Chart
                         st.markdown("""
                             <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px;
                                         box-shadow:0 4px 14px rgba(0,0,0,0.05); margin-top:2rem;">
@@ -319,12 +317,9 @@ if uploaded_file_csv_2:
                         """, unsafe_allow_html=True)
                         plot_volatility_chart(forecast_df, volatility_df)
 
-
-                        # Raw data
                         with st.expander("🔍 Raw Volatility Data"):
                             st.dataframe(volatility_df, use_container_width=True)
 
-                        # Volatility Summary Cards
                         avg_vol = volatility_df['Volatility'].mean()
                         max_vol = volatility_df['Volatility'].max()
                         min_vol = volatility_df['Volatility'].min()
@@ -391,7 +386,8 @@ if uploaded_file_csv_2:
 
                     with col1:
                         st.markdown(f"""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; 
+                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
                                 <div style="font-size:14px; color:#888;">Next Trading Day</div>
                                 <div style="font-size:22px; font-weight:700;">{next_trading_day.strftime('%b %d, %Y')}</div>
                             </div>
@@ -399,7 +395,8 @@ if uploaded_file_csv_2:
 
                     with col2:
                         st.markdown(f"""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; 
+                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
                                 <div style="font-size:14px; color:#888;">Forecasted Price</div>
                                 <div style="font-size:22px; font-weight:700;">{currency} {next_price:,.2f}</div>
                             </div>
@@ -407,7 +404,8 @@ if uploaded_file_csv_2:
 
                     with col3:
                         st.markdown(f"""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
+                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px; 
+                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); text-align:center;">
                                 <div style="font-size:14px; color:#888;">Forecast Signal</div>
                                 <div style="font-size:20px; font-weight:700; color:{signal_color};">{signal}</div>
                                 <div style="font-size:13px; color:#666;">{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
@@ -429,49 +427,34 @@ if uploaded_file_csv_2:
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
 # ========================
 try:
-    HIST_FILE = "historical_forecasts.csv"  # main log file
-    BACKUP_DIR = "backups"  # backup folder
+    HIST_FILE = "historical_forecasts.csv"
+    BACKUP_DIR = "backups"
 
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
-    # ========================
-    # TRAIN BLEND WEIGHTS
-    # ========================
     def train_blender(historical_df):
         X = historical_df[['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']].values
         y = historical_df['Actual'].values
         model = LinearRegression()
         model.fit(X, y)
-        weights = model.coef_ / np.sum(np.abs(model.coef_))  # normalize
+        weights = model.coef_ / np.sum(np.abs(model.coef_))
         return model, weights
 
-    # ========================
-    # GET FINAL PREDICTION
-    # ========================
     def get_final_prediction(model_predictions, blender_model):
         X = np.array(model_predictions).reshape(1, -1)
         return blender_model.predict(X)[0]
 
-    # ========================
-    # SMOOTH PREDICTIONS
-    # ========================
     def smooth_predictions(time_points, predictions):
         f = interp1d(time_points, predictions, kind='cubic', fill_value="extrapolate")
         smooth_time = np.linspace(min(time_points), max(time_points), num=100)
         smooth_preds = f(smooth_time)
         return smooth_time, smooth_preds
 
-    # ========================
-    # AUTO-UPDATE WEIGHTS (weekly)
-    # ========================
     def should_retrain(last_train_date):
         if last_train_date is None:
             return True
         return (datetime.date.today() - last_train_date).days >= 7
 
-    # ========================
-    # LOAD OR CREATE HISTORY
-    # ========================
     if os.path.exists(HIST_FILE):
         historical_data = pd.read_csv(HIST_FILE)
     else:
@@ -480,9 +463,6 @@ try:
         ])
         historical_data.to_csv(HIST_FILE, index=False)
 
-    # ========================
-    # CURRENT MODEL PREDICTIONS (replace with actual)
-    # ========================
     current_preds = [
         lstm_forecast_value,
         garch_forecast_value,
@@ -491,13 +471,9 @@ try:
         autoformer_forecast_value
     ]
 
-    # OPTIONAL: get actual price for today (replace with your real fetching function)
     today_actual_price = get_actual_price_for_symbol(selected_symbol)
-
-    # ========================
-    # AUTO-LOG TODAY'S PREDICTIONS + BACKUP
-    # ========================
     today_str = datetime.date.today().isoformat()
+
     if today_str not in historical_data['Date'].values:
         new_row = pd.DataFrame([{
             'Date': today_str,
@@ -511,13 +487,9 @@ try:
         historical_data = pd.concat([historical_data, new_row], ignore_index=True)
         historical_data.to_csv(HIST_FILE, index=False)
 
-        # Create a timestamped backup
         backup_filename = f"{BACKUP_DIR}/historical_forecasts_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         historical_data.to_csv(backup_filename, index=False)
 
-    # ========================
-    # RETRAIN BLENDER IF NEEDED
-    # ========================
     if "last_train_date" not in st.session_state:
         st.session_state.last_train_date = None
 
@@ -530,9 +502,6 @@ try:
         blender = st.session_state.blender
         weights = st.session_state.weights
 
-    # ========================
-    # FINAL PRICE PREDICTION
-    # ========================
     final_price = get_final_prediction(current_preds, blender)
 
     col1, col2 = st.columns(2)
@@ -545,9 +514,6 @@ try:
         f"Autoformer={current_preds[4]:.2f}"
     )
 
-    # ========================
-    # MODEL CONTRIBUTION CHART
-    # ========================
     model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
     contributions = np.array(weights) * final_price
 
@@ -570,9 +536,6 @@ try:
 
     st.altair_chart(bar_chart, use_container_width=True)
 
-    # ========================
-    # INTERPOLATION / EXTRAPOLATION PLOT
-    # ========================
     time_points = [1, 2, 3, 4, 5]
     smooth_time, smooth_preds = smooth_predictions(time_points, current_preds)
     st.line_chart(pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day'))
