@@ -20,6 +20,8 @@ from utils.plotting import plot_forecast_chart, plot_volatility_chart
 from utils.theme import set_page_config, inject_custom_css
 from utils.sentiment import fetch_twitter_sentiment, fetch_news_sentiment
 from utils.pdf_extractor import extract_text_from_pdf
+from utils.blending import train_blender, smooth_predictions, get_final_prediction, prepare_historical_df
+
 
 from model.lstm_model import run_lstm_forecast
 from model.garch_model import run_garch_forecast
