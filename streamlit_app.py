@@ -253,118 +253,198 @@ if uploaded_file_csv_2:
         # Remove weekends and custom holidays
         df = df[df['Date'].dt.weekday < 5]
         df = df[~df['Date'].isin(CUSTOM_HOLIDAYS)]
+# =========================
+# 📊 Technical Indicators
+# =========================
+if 'Close' in df.columns:
+    df['Daily Return'] = df['Close'].pct_change()
 
-        # =========================
-        # 📊 Technical Indicators
-        # =========================
-        if 'Close' in df.columns:
-            df['Daily Return'] = df['Close'].pct_change()
+    delta = df['Close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
 
-            delta = df['Close'].diff()
-            gain = delta.where(delta > 0, 0)
-            loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
 
-            avg_gain = gain.rolling(window=14).mean()
-            avg_loss = loss.rolling(window=14).mean()
+    rs = avg_gain / avg_loss
+    df['RSI'] = 100 - (100 / (1 + rs))
 
-            rs = avg_gain / avg_loss
-            df['RSI'] = 100 - (100 / (1 + rs))
+    with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
+        st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
 
-            with st.expander("🔍 Preview Data: Date, Close, Daily Return, RSI", expanded=True):
-                st.dataframe(df[['Date', 'Close', 'Daily Return', 'RSI']].dropna().tail(10))
+# Preview cleaned dataset with styled card
+st.markdown(f"""
+<div style="
+    background: #ffffff;
+    padding: 1.5rem 2rem;
+    border-radius: 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1.5rem;
+">
+    <h3 style="color:#121212; font-weight:700; margin-bottom:0.5rem;">🧼 Preview of <code>{task_name}</code> Dataset</h3>
+    <div style="font-size:14px; color:#555;">Showing last 5 rows of your uploaded dataset</div>
+</div>
+""", unsafe_allow_html=True)
 
-        # Preview cleaned dataset
-        st.markdown(f"### 🧼 Preview of `{task_name}` Dataset")
-        st.dataframe(df.tail(), use_container_width=True)
+st.dataframe(df.tail(), use_container_width=True)
 
-        # =========================
-        # Run forecasts
-        # =========================
-        with st.spinner("Running forecast(s)..."):
-            models_to_run = [selected_model] if not run_all else ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"]
 
-            for model in models_to_run:
-                st.markdown(f"---\n### 🔮 {model} Forecast")
-                with st.container():
-                    if model == "LSTM":
-                        forecast_df, mae = run_lstm_forecast(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
-                        display_mae_chart(mae)
+# =========================
+# Run forecasts
+# =========================
+with st.spinner("Running forecast(s)..."):
+    models_to_run = [selected_model] if not run_all else ["LSTM", "GARCH", "XGBoost", "Informer", "Autoformer"]
 
-                    elif model == "GARCH":
-                        forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
-                        st.markdown("### 📉 Forecasted Price")
-                        plot_forecast_chart(forecast_df, model)
+    for model in models_to_run:
+        st.markdown(f"""
+        <div style="
+            background: #ffffff;
+            padding: 1.75rem 2rem;
+            border-radius: 24px;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+            border: 1px solid #e2e2e2;
+        ">
+            <h3 style="color:#2E8B57; font-weight:700; margin-bottom:1rem;">🔮 {model} Forecast</h3>
+        </div>
+        """, unsafe_allow_html=True)
 
-                        st.markdown("""
-                            <div style="background-color:#ffffff; padding:1.5rem; border-radius:20px;
-                                        box-shadow:0 4px 14px rgba(0,0,0,0.05); margin-top:2rem;">
-                                <h4 style="margin-bottom:0.5rem; color:#121212;">📊 Forecasted Volatility</h4>
-                                <p style="font-size:14px; color:#666;">This chart shows the predicted volatility (standard deviation of returns) for each forecasted day using GARCH.</p>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        plot_volatility_chart(forecast_df, volatility_df)
+        with st.container():
+            if model == "LSTM":
+                forecast_df, mae = run_lstm_forecast(df, forecast_days, currency)
+                plot_forecast_chart(forecast_df, model)
+                display_mae_chart(mae)
 
-                        with st.expander("🔍 Raw Volatility Data"):
-                            st.dataframe(volatility_df, use_container_width=True)
+            elif model == "GARCH":
+                forecast_df, volatility_df = run_garch_forecast(df, forecast_days, currency)
+                st.markdown("### 📉 Forecasted Price")
+                plot_forecast_chart(forecast_df, model)
 
-                        avg_vol = volatility_df['Volatility'].mean()
-                        max_vol = volatility_df['Volatility'].max()
-                        min_vol = volatility_df['Volatility'].min()
+                st.markdown("""
+                    <div style="
+                        background-color:#ffffff; 
+                        padding:1.5rem; 
+                        border-radius:20px;
+                        box-shadow:0 4px 14px rgba(0,0,0,0.05);
+                        margin-top:2rem;
+                    ">
+                        <h4 style="margin-bottom:0.5rem; color:#121212;">📊 Forecasted Volatility</h4>
+                        <p style="font-size:14px; color:#666;">
+                            This chart shows the predicted volatility (standard deviation of returns) for each forecasted day using GARCH.
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+                plot_volatility_chart(forecast_df, volatility_df)
 
-                        col1, col2, col3 = st.columns(3)
-                        col1.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Average Volatility</div><div style='font-size:22px; font-weight:700;'>{avg_vol:.4f}</div></div>", unsafe_allow_html=True)
-                        col2.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Max Volatility</div><div style='font-size:22px; font-weight:700;'>{max_vol:.4f}</div></div>", unsafe_allow_html=True)
-                        col3.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Min Volatility</div><div style='font-size:22px; font-weight:700;'>{min_vol:.4f}</div></div>", unsafe_allow_html=True)
+                with st.expander("🔍 Raw Volatility Data"):
+                    st.dataframe(volatility_df, use_container_width=True)
 
-                    elif model == "XGBoost":
-                        forecast_df, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
-                        display_mae_chart(mae)
-                        st.pyplot(shap_plot)
+                avg_vol = volatility_df['Volatility'].mean()
+                max_vol = volatility_df['Volatility'].max()
+                min_vol = volatility_df['Volatility'].min()
 
-                    elif model == "Informer":
-                        forecast_df = run_informer(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
+                col1, col2, col3 = st.columns(3)
+                for col, title, val in zip(
+                    [col1, col2, col3],
+                    ["Average Volatility", "Max Volatility", "Min Volatility"],
+                    [avg_vol, max_vol, min_vol]
+                ):
+                    col.markdown(f"""
+                    <div style="
+                        background-color:#fff; 
+                        padding:1.5rem; 
+                        border-radius:20px; 
+                        text-align:center;
+                        box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+                        margin-bottom: 1rem;
+                    ">
+                        <div style='font-size:14px; color:#888;'>{title}</div>
+                        <div style='font-size:22px; font-weight:700;'>{val:.4f}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    elif model == "Autoformer":
-                        forecast_df = run_autoformer(df, forecast_days, currency)
-                        plot_forecast_chart(forecast_df, model)
+            elif model == "XGBoost":
+                forecast_df, mae, shap_plot = run_xgboost_with_shap(df, forecast_days, currency)
+                plot_forecast_chart(forecast_df, model)
+                display_mae_chart(mae)
+                st.pyplot(shap_plot)
 
-                    # Calculate forecast signal
-                    last_date = df['Date'].max()
-                    next_trading_day = get_next_trading_day(last_date)
-                    next_price = forecast_df.iloc[0]['Forecast']
+            elif model == "Informer":
+                forecast_df = run_informer(df, forecast_days, currency)
+                plot_forecast_chart(forecast_df, model)
 
-                    if 'Date' not in forecast_df.columns:
-                        forecast_df.insert(0, 'Date', pd.NaT)
-                    forecast_df.at[0, 'Date'] = next_trading_day
+            elif model == "Autoformer":
+                forecast_df = run_autoformer(df, forecast_days, currency)
+                plot_forecast_chart(forecast_df, model)
 
-                    last_close = df['Close'].iloc[-1]
-                    change = next_price - last_close
-                    percent = (change / last_close) * 100
-                    direction = "📈 Increase" if change > 0 else "📉 Decrease"
-                    signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
-                    signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
+            # Calculate forecast signal
+            last_date = df['Date'].max()
+            next_trading_day = get_next_trading_day(last_date)
+            next_price = forecast_df.iloc[0]['Forecast']
 
-                    col1, col2, col3 = st.columns(3)
-                    col1.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Next Trading Day</div><div style='font-size:22px; font-weight:700;'>{next_trading_day.strftime('%b %d, %Y')}</div></div>", unsafe_allow_html=True)
-                    col2.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Forecasted Price</div><div style='font-size:22px; font-weight:700;'>{currency} {next_price:,.2f}</div></div>", unsafe_allow_html=True)
-                    col3.markdown(f"<div style='background-color:#fff; padding:1.5rem; border-radius:20px; text-align:center;'><div style='font-size:14px; color:#888;'>Forecast Signal</div><div style='font-size:20px; font-weight:700; color:{signal_color};'>{signal}</div><div style='font-size:13px; color:#666;'>{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div></div>", unsafe_allow_html=True)
+            if 'Date' not in forecast_df.columns:
+                forecast_df.insert(0, 'Date', pd.NaT)
+            forecast_df.at[0, 'Date'] = next_trading_day
 
-                    export_data.append({
-                        "Model": model,
-                        "Forecasted Price": next_price,
-                        "Last Price": last_close,
-                        "Change": change,
-                        "Percent Change": percent,
-                        "Direction": direction,
-                        "Signal": signal,
-                        "Next Trading Day": next_trading_day.strftime('%Y-%m-%d')
-                    })
+            last_close = df['Close'].iloc[-1]
+            change = next_price - last_close
+            percent = (change / last_close) * 100
+            direction = "📈 Increase" if change > 0 else "📉 Decrease"
+            signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
+            signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
 
-    except Exception as e:
-        st.error(f"Data processing error in forecast block: {e}")
+            col1, col2, col3 = st.columns(3)
+            col1.markdown(f"""
+            <div style="
+                background-color:#fff; 
+                padding:1.5rem; 
+                border-radius:20px; 
+                text-align:center;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            ">
+                <div style='font-size:14px; color:#888;'>Next Trading Day</div>
+                <div style='font-size:22px; font-weight:700;'>{next_trading_day.strftime('%b %d, %Y')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            col2.markdown(f"""
+            <div style="
+                background-color:#fff; 
+                padding:1.5rem; 
+                border-radius:20px; 
+                text-align:center;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            ">
+                <div style='font-size:14px; color:#888;'>Forecasted Price</div>
+                <div style='font-size:22px; font-weight:700;'>{currency} {next_price:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            col3.markdown(f"""
+            <div style="
+                background-color:#fff; 
+                padding:1.5rem; 
+                border-radius:20px; 
+                text-align:center;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            ">
+                <div style='font-size:14px; color:#888;'>Forecast Signal</div>
+                <div style='font-size:20px; font-weight:700; color:{signal_color};'>{signal}</div>
+                <div style='font-size:13px; color:#666;'>{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            export_data.append({
+                "Model": model,
+                "Forecasted Price": next_price,
+                "Last Price": last_close,
+                "Change": change,
+                "Percent Change": percent,
+                "Direction": direction,
+                "Signal": signal,
+                "Next Trading Day": next_trading_day.strftime('%Y-%m-%d')
+            })
+
+except Exception as e:
+    st.error(f"Data processing error in forecast block: {e}")
 
 
 # ========================
@@ -469,16 +549,27 @@ try:
     else:
         final_price = get_final_prediction(current_preds, blender)
 
-    # Display results
-    col1, col2 = st.columns(2)
-    col1.metric("Final Blended Price", f"{final_price:.2f} KES" if not np.isnan(final_price) else "N/A")
-    col2.write(
-        f"Predictions → LSTM={current_preds[0]}, "
-        f"GARCH={current_preds[1]}, "
-        f"XGB={current_preds[2]}, "
-        f"Informer={current_preds[3]}, "
-        f"Autoformer={current_preds[4]}"
-    )
+    # Display results in styled container
+    st.markdown(f"""
+    <div style="
+        background:#fff;
+        padding: 1.75rem 2rem;
+        border-radius: 24px;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+        border: 1px solid #e2e2e2;
+    ">
+        <h3 style="color:#2E8B57; font-weight:700; margin-bottom:1rem;">📊 Final Blended Price Forecast</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:20px; font-weight:700; color:#121212;">
+                {final_price:.2f} KES
+            </div>
+            <div style="font-size:14px; color:#555;">
+                Predictions → LSTM={current_preds[0]}, GARCH={current_preds[1]}, XGB={current_preds[2]}, Informer={current_preds[3]}, Autoformer={current_preds[4]}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Contribution chart
     if not np.isnan(final_price):
@@ -499,18 +590,33 @@ try:
                 alt.value('#F44336')
             ),
             tooltip=['Model', alt.Tooltip('Contribution:Q', format='.2f')]
-        ).properties(width=500, height=300, title="Model Contribution to Final Price")
+        ).properties(width=600, height=350, title="Model Contribution to Final Price")
         st.altair_chart(bar_chart, use_container_width=True)
 
-        # Smoothed forecast line
+        # Smoothed forecast line chart
         time_points = [1, 2, 3, 4, 5]
         smooth_time, smooth_preds = smooth_predictions(time_points, current_preds)
-        st.line_chart(pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day'))
+        line_df = pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day')
+
+        st.markdown("""
+        <div style="
+            background:#fff;
+            padding:1rem 1.5rem;
+            border-radius:16px;
+            box-shadow:0 4px 15px rgba(0,0,0,0.06);
+            margin-bottom:1rem;
+        ">
+            <h4 style="color:#121212; font-weight:600;">📈 Smoothed Blended Forecast</h4>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.line_chart(line_df)
 
         st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
 
 except Exception as e:
     st.error(f"Data processing error in blended forecast: {e}")
+
 
 
 
