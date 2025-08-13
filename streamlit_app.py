@@ -425,142 +425,152 @@ if uploaded_file_csv_2:
 
 
 # ========================
-# TRAIN BLEND WEIGHTS
+# 📊 Final Blended Forecast Section
 # ========================
-def train_blender(historical_df):
-    """
-    historical_df: DataFrame with columns:
-    ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer', 'Actual']
-    Returns trained LinearRegression model and normalized weights.
-    """
-    X = historical_df[['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']].values
-    y = historical_df['Actual'].values
-    model = LinearRegression()
-    model.fit(X, y)
-    weights = model.coef_ / np.sum(np.abs(model.coef_))  # normalize by absolute sum
-    return model, weights
+try:
+    # ========================
+    # TRAIN BLEND WEIGHTS
+    # ========================
+    def train_blender(historical_df):
+        """
+        historical_df: DataFrame with columns:
+        ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer', 'Actual']
+        Returns trained LinearRegression model and normalized weights.
+        """
+        X = historical_df[['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']].values
+        y = historical_df['Actual'].values
+        model = LinearRegression()
+        model.fit(X, y)
+        weights = model.coef_ / np.sum(np.abs(model.coef_))  # normalize by absolute sum
+        return model, weights
 
-# ========================
-# GET FINAL PREDICTION
-# ========================
-def get_final_prediction(model_predictions, blender_model):
-    X = np.array(model_predictions).reshape(1, -1)
-    return blender_model.predict(X)[0]
+    # ========================
+    # GET FINAL PREDICTION
+    # ========================
+    def get_final_prediction(model_predictions, blender_model):
+        X = np.array(model_predictions).reshape(1, -1)
+        return blender_model.predict(X)[0]
 
-# ========================
-# SMOOTH FOR INTERPOLATION / EXTRAPOLATION
-# ========================
-def smooth_predictions(time_points, predictions):
-    f = interp1d(time_points, predictions, kind='cubic', fill_value="extrapolate")
-    smooth_time = np.linspace(min(time_points), max(time_points), num=100)
-    smooth_preds = f(smooth_time)
-    return smooth_time, smooth_preds
+    # ========================
+    # SMOOTH FOR INTERPOLATION / EXTRAPOLATION
+    # ========================
+    def smooth_predictions(time_points, predictions):
+        f = interp1d(time_points, predictions, kind='cubic', fill_value="extrapolate")
+        smooth_time = np.linspace(min(time_points), max(time_points), num=100)
+        smooth_preds = f(smooth_time)
+        return smooth_time, smooth_preds
 
-# ========================
-# AUTO-UPDATE WEIGHTS (weekly)
-# ========================
-def should_retrain(last_train_date):
-    if last_train_date is None:
-        return True
-    return (datetime.date.today() - last_train_date).days >= 7
+    # ========================
+    # AUTO-UPDATE WEIGHTS (weekly)
+    # ========================
+    def should_retrain(last_train_date):
+        if last_train_date is None:
+            return True
+        return (datetime.date.today() - last_train_date).days >= 7
 
-# ========================
-# STREAMLIT UI
-# ========================
-st.subheader("📊 Final Blended Forecast")
+    # ========================
+    # STREAMLIT UI
+    # ========================
+    st.subheader("📊 Final Blended Forecast")
 
-# Session state for last train date
-if "last_train_date" not in st.session_state:
-    st.session_state.last_train_date = None
+    # Session state for last train date
+    if "last_train_date" not in st.session_state:
+        st.session_state.last_train_date = None
 
-# Simulated past data (replace with your actual historical logs)
-historical_data = pd.DataFrame({
-    'LSTM': np.random.uniform(100, 110, 30),
-    'GARCH': np.random.uniform(100, 110, 30),
-    'XGB': np.random.uniform(100, 110, 30),
-    'Informer': np.random.uniform(100, 110, 30),
-    'Autoformer': np.random.uniform(100, 110, 30),
-    'Actual': np.random.uniform(100, 110, 30)
-})
+    # Simulated past data (replace with your actual historical logs)
+    historical_data = pd.DataFrame({
+        'LSTM': np.random.uniform(100, 110, 30),
+        'GARCH': np.random.uniform(100, 110, 30),
+        'XGB': np.random.uniform(100, 110, 30),
+        'Informer': np.random.uniform(100, 110, 30),
+        'Autoformer': np.random.uniform(100, 110, 30),
+        'Actual': np.random.uniform(100, 110, 30)
+    })
 
-# Retrain weekly if needed
-if should_retrain(st.session_state.last_train_date):
-    blender, weights = train_blender(historical_data)
-    st.session_state.blender = blender
-    st.session_state.weights = weights
-    st.session_state.last_train_date = datetime.date.today()
-else:
-    blender = st.session_state.blender
-    weights = st.session_state.weights
+    # Retrain weekly if needed
+    if should_retrain(st.session_state.last_train_date):
+        blender, weights = train_blender(historical_data)
+        st.session_state.blender = blender
+        st.session_state.weights = weights
+        st.session_state.last_train_date = datetime.date.today()
+    else:
+        blender = st.session_state.blender
+        weights = st.session_state.weights
 
-# Example current predictions (replace with your actual model outputs)
-current_preds = [102.5, 101.8, 103.2, 102.1, 101.9]
-final_price = get_final_prediction(current_preds, blender)
+    # Example current predictions (replace with your actual model outputs)
+    current_preds = [102.5, 101.8, 103.2, 102.1, 101.9]
+    final_price = get_final_prediction(current_preds, blender)
 
-# Display Final Price
-col1, col2 = st.columns(2)
-col1.metric("Final Blended Price", f"{final_price:.2f} KES")
-col2.write(f"Predictions → LSTM={current_preds[0]}, GARCH={current_preds[1]}, "
-           f"XGB={current_preds[2]}, Informer={current_preds[3]}, Autoformer={current_preds[4]}")
+    # Display Final Price
+    col1, col2 = st.columns(2)
+    col1.metric("Final Blended Price", f"{final_price:.2f} KES")
+    col2.write(
+        f"Predictions → LSTM={current_preds[0]}, "
+        f"GARCH={current_preds[1]}, "
+        f"XGB={current_preds[2]}, "
+        f"Informer={current_preds[3]}, "
+        f"Autoformer={current_preds[4]}"
+    )
 
-# Prepare contribution data for stacked bar
-model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
-contributions = np.array(weights) * final_price
+    # Prepare contribution data for stacked bar
+    model_names = ['LSTM', 'GARCH', 'XGB', 'Informer', 'Autoformer']
+    contributions = np.array(weights) * final_price
 
-contrib_df = pd.DataFrame({
-    'Model': model_names,
-    'Contribution': contributions,
-    'Positive': contributions > 0
-})
+    contrib_df = pd.DataFrame({
+        'Model': model_names,
+        'Contribution': contributions,
+        'Positive': contributions > 0
+    })
 
-# Altair stacked contribution bar chart
-bar_chart = alt.Chart(contrib_df).mark_bar().encode(
-    x=alt.X('Model:N', sort=None),
-    y=alt.Y('Contribution:Q'),
-    color=alt.condition(
-        alt.datum.Positive,
-        alt.value('#4CAF50'),  # green for positive
-        alt.value('#F44336')   # red for negative
-    ),
-    tooltip=['Model', alt.Tooltip('Contribution:Q', format='.2f')]
-).properties(width=500, height=300, title="Model Contribution to Final Price")
+    # Altair stacked contribution bar chart
+    bar_chart = alt.Chart(contrib_df).mark_bar().encode(
+        x=alt.X('Model:N', sort=None),
+        y=alt.Y('Contribution:Q'),
+        color=alt.condition(
+            alt.datum.Positive,
+            alt.value('#4CAF50'),  # green for positive
+            alt.value('#F44336')   # red for negative
+        ),
+        tooltip=['Model', alt.Tooltip('Contribution:Q', format='.2f')]
+    ).properties(width=500, height=300, title="Model Contribution to Final Price")
 
-st.altair_chart(bar_chart, use_container_width=True)
+    st.altair_chart(bar_chart, use_container_width=True)
 
-# Interpolation/Extrapolation Plot
-time_points = [1, 2, 3, 4, 5]
-smooth_time, smooth_preds = smooth_predictions(time_points, current_preds)
-st.line_chart(pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day'))
+    # Interpolation/Extrapolation Plot
+    time_points = [1, 2, 3, 4, 5]
+    smooth_time, smooth_preds = smooth_predictions(time_points, current_preds)
+    st.line_chart(pd.DataFrame({'Day': smooth_time, 'Blended Forecast': smooth_preds}).set_index('Day'))
 
-# Show weights for transparency
-st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
+    # Show weights for transparency
+    st.caption(f"Model Weights: {dict(zip(model_names, np.round(weights, 3)))}")
 
+    # =========================
+    # 📊 Sentiment Analysis Section
+    # =========================
+    if sentiment_run:
+        st.markdown("---\n### 🗾️ Sentiment Analysis Summary")
+        twitter_df = fetch_twitter_sentiment(sentiment_symbol)
+        news_df = fetch_news_sentiment(sentiment_symbol)
 
+        st.markdown("#### 🔦 Twitter Sentiment")
+        st.dataframe(twitter_df)
+        st.markdown("#### 📰 News Sentiment")
+        st.dataframe(news_df)
 
-        # =========================
-        # 📊 Sentiment Analysis Section
-        # =========================
-        if sentiment_run:
-            st.markdown("---\n### 🗾️ Sentiment Analysis Summary")
-            twitter_df = fetch_twitter_sentiment(sentiment_symbol)
-            news_df = fetch_news_sentiment(sentiment_symbol)
+    # =========================
+    # 📄 Export Forecast Summary
+    # =========================
+    if export_data:
+        st.markdown("### 📄 Export Summary")
+        export_df = pd.DataFrame(export_data)
+        st.dataframe(export_df)
+        csv = export_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "📅 Download Forecast Summary as CSV",
+            csv,
+            file_name="forecast_summary.csv",
+            mime="text/csv"
+        )
 
-            st.markdown("#### 🔦 Twitter Sentiment")
-            st.dataframe(twitter_df)
-            st.markdown("#### 📰 News Sentiment")
-            st.dataframe(news_df)
-
-        # =========================
-        # 📄 Export Forecast Summary
-        # =========================
-        if export_data:
-            st.markdown("### 📄 Export Summary")
-            export_df = pd.DataFrame(export_data)
-            st.dataframe(export_df)
-            csv = export_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📅 Download Forecast Summary as CSV", csv, file_name="forecast_summary.csv", mime="text/csv")
-
-    except Exception as e:
-        st.error(f"Data processing error: {e}")
-else:
-    st.info("Please upload a CSV file to begin.")
+except Exception as e:
+    st.error(f"Data processing error: {e}")
