@@ -578,6 +578,109 @@ if uploaded_file_csv_2 and 'df' in locals():
 else:
     st.info("Upload a CSV file to run forecasts.")
 
+# =========================
+# Blended Forecast
+# =========================
+try:
+    if 'export_data' in locals() and len(export_data) > 0:
+        st.markdown(f"""
+        <div style="
+            background: #ffffff;
+            padding: 1.75rem 2rem;
+            border-radius: 24px;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+            border: 1px solid #e2e2e2;
+        ">
+            <h3 style="color:#1E90FF; font-weight:700; margin-bottom:1rem;">🔮 Blended Forecast</h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Collect all forecasted prices
+        blended_df = pd.DataFrame(export_data)
+        blended_df['Forecasted Price'] = pd.to_numeric(blended_df['Forecasted Price'], errors='coerce')
+        blended_df = blended_df.dropna(subset=['Forecasted Price'])
+        if not blended_df.empty:
+            blended_price = blended_df['Forecasted Price'].mean()
+            last_close = blended_df['Last Price'].iloc[0]
+            change = blended_price - last_close
+            percent = (change / last_close) * 100 if last_close != 0 else 0
+            direction = "📈 Increase" if change > 0 else "📉 Decrease"
+            signal = "✅ BUY Signal" if percent > 2 else "⚠️ SELL Signal" if percent < -2 else "🟡 HOLD"
+            signal_color = "green" if "BUY" in signal else "red" if "SELL" in signal else "orange"
+
+            # Dates for blended forecast
+            next_trading_day = get_next_trading_day(df['Date'].max())
+
+            # Plot blended forecast chart
+            import plotly.graph_objects as go
+            fig_blend = go.Figure()
+            fig_blend.add_trace(go.Scatter(
+                x=df['Date'].iloc[-forecast_days:],
+                y=df['Close'].iloc[-forecast_days:],
+                mode='lines+markers',
+                name='Actual Close',
+                line=dict(color='green')
+            ))
+            fig_blend.add_trace(go.Scatter(
+                x=[next_trading_day],
+                y=[blended_price],
+                mode='markers+text',
+                name='Blended Forecast',
+                marker=dict(color='blue', size=12),
+                text=[f"{blended_price:.2f}"],
+                textposition='top center'
+            ))
+            fig_blend.update_layout(
+                title=f"📊 Blended Forecast ({signal})",
+                xaxis_title="Date",
+                yaxis_title=f"Price ({currency})",
+                template="plotly_white",
+                height=400
+            )
+            st.plotly_chart(fig_blend, use_container_width=True)
+
+            # Display signal card
+            col1, col2, col3 = st.columns(3)
+            col1.markdown(f"""
+            <div style='
+                background-color:#fff;
+                padding:1.5rem;
+                border-radius:20px;
+                text-align:center;
+                box-shadow:0 3px 10px rgba(0,0,0,0.05);
+            '>
+                <div style='font-size:14px; color:#888;'>Next Trading Day</div>
+                <div style='font-size:22px; font-weight:700;'>{next_trading_day.strftime('%b %d, %Y')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            col2.markdown(f"""
+            <div style='
+                background-color:#fff;
+                padding:1.5rem;
+                border-radius:20px;
+                text-align:center;
+                box-shadow:0 3px 10px rgba(0,0,0,0.05);
+            '>
+                <div style='font-size:14px; color:#888;'>Forecasted Price</div>
+                <div style='font-size:22px; font-weight:700;'>{currency} {blended_price:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            col3.markdown(f"""
+            <div style='
+                background-color:#fff;
+                padding:1.5rem;
+                border-radius:20px;
+                text-align:center;
+                box-shadow:0 3px 10px rgba(0,0,0,0.05);
+            '>
+                <div style='font-size:14px; color:#888;'>Forecast Signal</div>
+                <div style='font-size:20px; font-weight:700; color:{signal_color};'>{signal}</div>
+                <div style='font-size:13px; color:#666;'>{direction} of {currency} {abs(change):,.2f} ({percent:.2f}%)</div>
+            </div>
+            """, unsafe_allow_html=True)
+except Exception as e:
+    st.error(f"Data processing error in blended forecast: {e}")
 
 # ========================
 # 📊 Final Blended Forecast Section with Auto Logging + Backups
