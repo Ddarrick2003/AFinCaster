@@ -465,7 +465,52 @@ if uploaded_file_csv_2 and 'df' in locals():
                         if forecast_df is not None and not forecast_df.empty:
                             fig_forecast = plot_forecast_chart(forecast_df, model)
 
+                    # ================================
+                    # NEW FEATURE 1: High & Low Plot
+                    # ================================
+                    if forecast_df is not None and not forecast_df.empty:
+                        import plotly.graph_objects as go
+
+                        high_low_fig = go.Figure()
+
+                        # Historical High-Low as filled area
+                        high_low_fig.add_trace(go.Scatter(
+                            x=df['Date'], y=df['High'],
+                            mode='lines', name='High (Historical)',
+                            line=dict(color='royalblue', width=1)
+                        ))
+                        high_low_fig.add_trace(go.Scatter(
+                            x=df['Date'], y=df['Low'],
+                            mode='lines', name='Low (Historical)',
+                            line=dict(color='lightcoral', width=1),
+                            fill='tonexty', fillcolor='rgba(200,200,200,0.2)'
+                        ))
+
+                        # Overlay Forecasted High/Low if present
+                        if 'High' in forecast_df.columns and 'Low' in forecast_df.columns:
+                            high_low_fig.add_trace(go.Scatter(
+                                x=forecast_df['Date'], y=forecast_df['High'],
+                                mode='lines+markers', name='High (Forecast)',
+                                line=dict(color='green', dash='dash')
+                            ))
+                            high_low_fig.add_trace(go.Scatter(
+                                x=forecast_df['Date'], y=forecast_df['Low'],
+                                mode='lines+markers', name='Low (Forecast)',
+                                line=dict(color='orange', dash='dash')
+                            ))
+
+                        high_low_fig.update_layout(
+                            title=f"📊 High & Low Prices ({model})",
+                            xaxis_title="Date",
+                            yaxis_title=f"Price ({currency})",
+                            template="plotly_white",
+                            height=400
+                        )
+                        st.plotly_chart(high_low_fig, use_container_width=True)
+
+                    # ================================
                     # Display charts if they exist
+                    # ================================
                     if fig_forecast is not None:
                         st.plotly_chart(fig_forecast, use_container_width=True)
                     if fig_shap is not None:
